@@ -8,6 +8,7 @@ import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 // Firestore removed - subscription is now pure local
 // import 'package:cloud_firestore/cloud_firestore.dart';
 // import 'package:firebase_auth/firebase_auth.dart';
+import 'notification_service.dart';
 
 class SubscriptionService {
   static final SubscriptionService _instance = SubscriptionService._internal();
@@ -224,6 +225,14 @@ class SubscriptionService {
       await prefs.setString(_keyLocalProductId, purchaseDetails.productID);
 
       debugPrint('✅ Subscription saved locally: $subscriptionType, expires: $expiryDate');
+
+      // Cancel retention notifications — they're a paying customer now
+      try {
+        final ns = NotificationService();
+        for (final id in [900001, 900002, 900003, 900004, 900005, 900006, 900007]) {
+          await ns.cancelReminder(id);
+        }
+      } catch (_) {}
     } catch (e) {
       debugPrint('❌ Error saving subscription locally: $e');
     }

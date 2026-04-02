@@ -26,10 +26,18 @@ class AppPresets {
         Preset(
           id: 'email_professional',
           icon: Icons.mail,
-          name: 'Email',
+          name: 'Email \u2013 Professional',
           description: 'Clear professional email',
           category: 'Personal',
           color: const Color(0xFFDC2626),
+        ),
+        Preset(
+          id: 'email_casual',
+          icon: Icons.chat_bubble,
+          name: 'Email \u2013 Casual',
+          description: 'Friendly informal email',
+          category: 'Personal',
+          color: const Color(0xFF10B981),
         ),
         Preset(
           id: 'quick_reply',

@@ -15,6 +15,7 @@ import 'screens/onboarding/permissions_screen.dart';
 import 'screens/onboarding/feature_showcase_screen.dart';
 import 'screens/onboarding/first_recording_screen.dart';
 import 'screens/import/import_content_screen.dart';
+import 'services/retention_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -173,6 +174,10 @@ class _SplashScreenState extends State<SplashScreen> {
     
     if (mounted) {
       if (hasCompletedOnboarding) {
+        // Track app open and cancel retention notifications if subscribed
+        RetentionNotificationService().recordAppOpen();
+        RetentionNotificationService().cancelIfSubscribed();
+
         // Onboarding complete — go straight to home, regardless of auth state
         Navigator.pushReplacement(
           context,
