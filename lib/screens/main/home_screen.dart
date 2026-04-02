@@ -16,23 +16,33 @@ import '../main/preset_selection_screen.dart';
 import '../settings/settings_screen.dart';
 import '../paywall/paywall_screen.dart';
 import '../../services/feature_gate.dart';
+import '../../services/subscription_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-  
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _overlayEnabled = false;
-  
+  bool _isPro = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkOverlayStatus();
     _initializeOverlay();
+    _checkProStatus();
+  }
+
+  Future<void> _checkProStatus() async {
+    final isPro = await SubscriptionService().isPro();
+    if (mounted && isPro != _isPro) {
+      setState(() => _isPro = isPro);
+    }
   }
   
   @override
@@ -44,6 +54,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      _checkProStatus();
+    }
     if (state == AppLifecycleState.resumed && Platform.isAndroid) {
       // App resumed (user came back from settings)
       debugPrint('📱 App resumed, checking overlay status...');
@@ -363,31 +376,48 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   // Premium & Settings Icons
                   Row(
                     children: [
-                      // Premium/Paywall Icon
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: surfaceColor,
-                          borderRadius: BorderRadius.circular(40),
+                      if (_isPro)
+                        // Pro badge
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: surfaceColor,
+                            borderRadius: BorderRadius.circular(40),
+                          ),
+                          child: const Center(
+                            child: Text('⭐', style: TextStyle(fontSize: 18)),
+                          ),
+                        )
+                      else
+                        // Upgrade/Paywall Icon
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: surfaceColor,
+                            borderRadius: BorderRadius.circular(40),
+                          ),
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => PaywallScreen(
+                                  onSubscribe: () {
+                                    _checkProStatus();
+                                  },
+                                  onRestore: () {
+                                    _checkProStatus();
+                                  },
+                                  onClose: () => Navigator.pop(context),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.workspace_premium, color: Color(0xFFFFD700), size: 20),
+                          ),
                         ),
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () {
-                            // Show paywall
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (context) => PaywallScreen(
-                                onSubscribe: () {},
-                                onRestore: () {},
-                                onClose: () => Navigator.pop(context),
-                              ),
-                            );
-                          },
-                          icon: Icon(Icons.workspace_premium, color: const Color(0xFFFFD700), size: 20),
-                        ),
-                      ),
                       const SizedBox(width: 8),
                       // Settings Button
                       Container(

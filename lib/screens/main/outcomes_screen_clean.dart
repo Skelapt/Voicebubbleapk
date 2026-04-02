@@ -9,6 +9,7 @@ import '../../widgets/multi_option_fab.dart';
 import '../../services/reminder_manager.dart';
 import '../settings/settings_screen.dart';
 import '../paywall/paywall_screen.dart';
+import '../../services/subscription_service.dart';
 import 'recording_screen.dart';
 import 'recording_detail_screen.dart';
 import 'outcome_creation_screen.dart';
@@ -26,6 +27,20 @@ class OutcomesScreenClean extends StatefulWidget {
 
 class _OutcomesScreenCleanState extends State<OutcomesScreenClean> {
   bool _showCompleted = false;
+  bool _isPro = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkProStatus();
+  }
+
+  Future<void> _checkProStatus() async {
+    final isPro = await SubscriptionService().isPro();
+    if (mounted && isPro != _isPro) {
+      setState(() => _isPro = isPro);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,30 +83,46 @@ class _OutcomesScreenCleanState extends State<OutcomesScreenClean> {
                         ),
                       ),
                       const Spacer(),
-                      // Paywall icon
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
-                          borderRadius: BorderRadius.circular(38),
+                      if (_isPro)
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1A1A),
+                            borderRadius: BorderRadius.circular(38),
+                          ),
+                          child: const Center(
+                            child: Text('\u2B50', style: TextStyle(fontSize: 16)),
+                          ),
+                        )
+                      else
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1A1A),
+                            borderRadius: BorderRadius.circular(38),
+                          ),
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => PaywallScreen(
+                                  onSubscribe: () {
+                                    _checkProStatus();
+                                  },
+                                  onRestore: () {
+                                    _checkProStatus();
+                                  },
+                                  onClose: () => Navigator.pop(context),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.workspace_premium, color: Color(0xFFFFD700), size: 20),
+                          ),
                         ),
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (context) => PaywallScreen(
-                                onSubscribe: () {},
-                                onRestore: () {},
-                                onClose: () => Navigator.pop(context),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.workspace_premium, color: Color(0xFFFFD700), size: 20),
-                        ),
-                      ),
                       const SizedBox(width: 6),
                       // Settings icon
                       Container(

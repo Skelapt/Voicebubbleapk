@@ -12,6 +12,7 @@ import '../../services/ai_service.dart';
 import '../../services/analytics_service.dart';
 import '../../services/feature_gate.dart';
 import '../../services/usage_service.dart';
+import '../../services/retention_notification_service.dart';
 import '../main/main_navigation.dart';
 import '../main/preset_selection_screen.dart';
 
@@ -74,6 +75,9 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('hasCompletedOnboarding', true);
     debugPrint('✅ Onboarding marked complete (first recording screen loaded)');
+
+    // Schedule retention notifications
+    RetentionNotificationService().scheduleOnboardingRetention();
   }
 
   @override
