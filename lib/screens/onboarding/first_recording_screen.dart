@@ -6,18 +6,20 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/app_state_provider.dart';
 import '../../services/ai_service.dart';
 import '../../services/analytics_service.dart';
 import '../../services/feature_gate.dart';
 import '../../services/usage_service.dart';
+import '../main/main_navigation.dart';
+import '../main/preset_selection_screen.dart';
 
 /// Forced first recording screen during onboarding.
 /// Full black, glowing record button, no skip option.
 /// User must record and get output to proceed.
 class FirstRecordingScreen extends StatefulWidget {
-  final VoidCallback onComplete;
-  const FirstRecordingScreen({super.key, required this.onComplete});
+  const FirstRecordingScreen({super.key});
 
   @override
   State<FirstRecordingScreen> createState() => _FirstRecordingScreenState();
@@ -26,7 +28,6 @@ class FirstRecordingScreen extends StatefulWidget {
 class _FirstRecordingScreenState extends State<FirstRecordingScreen>
     with TickerProviderStateMixin {
   late AnimationController _glowController;
-  late AnimationController _pulseController;
 
   // Recording state
   final AudioRecorder _audioRecorder = AudioRecorder();
@@ -57,17 +58,11 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
       duration: const Duration(milliseconds: 2000),
       vsync: this,
     )..repeat(reverse: true);
-
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat();
   }
 
   @override
   void dispose() {
     _glowController.dispose();
-    _pulseController.dispose();
     _timer?.cancel();
     _waveTimer?.cancel();
     _audioRecorder.dispose();
@@ -182,10 +177,23 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
         // Grant the 10 extra free minutes bonus
         await UsageService().claimOnboardingBonus();
 
-        // Recording complete with output — onboarding done, go to home
-        if (mounted) {
-          widget.onComplete();
-        }
+        // Mark onboarding as complete
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('hasCompletedOnboarding', true);
+
+        if (!mounted) return;
+
+        // Navigate to MainNavigation (clear entire stack), then push PresetSelection on top
+        // This way ResultScreen's popUntil(isFirst) will land on MainNavigation (home)
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
+          (route) => false,
+        );
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const PresetSelectionScreen(fromRecording: true),
+          ),
+        );
       } else {
         throw Exception('No audio recorded');
       }
@@ -244,40 +252,44 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 32),
               child: Text(
-                'Try it now',
+                'Your first recording\n= 10 free minutes',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 36,
+                  fontSize: 32,
                   fontWeight: FontWeight.w900,
                   height: 1.2,
-                  letterSpacing: -1,
+                  letterSpacing: -0.5,
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'earn 10 extra free minutes.',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48),
+              child: Text(
+                'Think of an email you need to write.\nJust say it out loud.',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
             const Spacer(flex: 2),
             // Glowing record button
             GestureDetector(
               onTap: _startRecording,
               child: SizedBox(
-                width: 200,
-                height: 200,
+                width: 220,
+                height: 220,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     // Outer glow rings
                     ...List.generate(3, (i) {
-                      final ringOpacity = glowIntensity * (0.3 - (i * 0.08));
+                      final ringOpacity = glowIntensity * (0.25 - (i * 0.06));
                       final ringSize = 160.0 + (i * 30.0);
                       return Container(
                         width: ringSize,
@@ -286,7 +298,7 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: const Color(0xFF3B82F6).withOpacity(ringOpacity.clamp(0.0, 1.0)),
-                            width: 2,
+                            width: 1.5,
                           ),
                         ),
                       );
@@ -299,9 +311,9 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF3B82F6).withOpacity(glowIntensity),
+                            color: const Color(0xFF3B82F6).withOpacity(glowIntensity * 0.8),
                             blurRadius: 60,
-                            spreadRadius: 20,
+                            spreadRadius: 15,
                           ),
                         ],
                       ),
@@ -324,17 +336,17 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                 ),
               ),
             ),
-            const Spacer(flex: 2),
-            // Tap to record hint
+            const Spacer(flex: 1),
+            // Hint text
             Text(
-              'Tap to record',
+              'Takes 10 seconds',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withOpacity(0.3),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const Spacer(flex: 1),
+            const Spacer(flex: 2),
           ],
         );
       },
@@ -392,12 +404,12 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
         if (_isProcessing)
           Column(
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 80,
                 height: 80,
                 child: CircularProgressIndicator(
                   strokeWidth: 4,
-                  valueColor: const AlwaysStoppedAnimation(Color(0xFF3B82F6)),
+                  valueColor: AlwaysStoppedAnimation(Color(0xFF3B82F6)),
                 ),
               ),
               const SizedBox(height: 16),
