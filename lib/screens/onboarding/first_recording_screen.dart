@@ -16,8 +16,8 @@ import '../main/main_navigation.dart';
 import '../main/preset_selection_screen.dart';
 
 /// Forced first recording screen during onboarding.
-/// Full black, glowing record button, no skip option.
-/// User must record and get output to proceed.
+/// Full black, glowing record button, skip option (small, grey).
+/// Completing a recording earns 10 bonus minutes.
 class FirstRecordingScreen extends StatefulWidget {
   const FirstRecordingScreen({super.key});
 
@@ -28,6 +28,7 @@ class FirstRecordingScreen extends StatefulWidget {
 class _FirstRecordingScreenState extends State<FirstRecordingScreen>
     with TickerProviderStateMixin {
   late AnimationController _glowController;
+  late AnimationController _badgeController;
 
   // Recording state
   final AudioRecorder _audioRecorder = AudioRecorder();
@@ -58,15 +59,39 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
       duration: const Duration(milliseconds: 2000),
       vsync: this,
     )..repeat(reverse: true);
+
+    _badgeController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    // Mark onboarding complete immediately — they made it here, they're in.
+    // The recording is a bonus incentive, not a gate.
+    _markOnboardingComplete();
+  }
+
+  Future<void> _markOnboardingComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hasCompletedOnboarding', true);
+    debugPrint('✅ Onboarding marked complete (first recording screen loaded)');
   }
 
   @override
   void dispose() {
     _glowController.dispose();
+    _badgeController.dispose();
     _timer?.cancel();
     _waveTimer?.cancel();
     _audioRecorder.dispose();
     super.dispose();
+  }
+
+  void _skipToHome() {
+    HapticFeedback.lightImpact();
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainNavigation()),
+      (route) => false,
+    );
   }
 
   String _formatTime() {
@@ -177,14 +202,9 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
         // Grant the 10 extra free minutes bonus
         await UsageService().claimOnboardingBonus();
 
-        // Mark onboarding as complete
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('hasCompletedOnboarding', true);
-
         if (!mounted) return;
 
-        // Navigate to MainNavigation (clear entire stack), then push PresetSelection on top
-        // This way ResultScreen's popUntil(isFirst) will land on MainNavigation (home)
+        // Navigate to MainNavigation (clear stack), then push PresetSelection
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainNavigation()),
           (route) => false,
@@ -242,111 +262,170 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
 
   Widget _buildIdleView() {
     return AnimatedBuilder(
-      animation: _glowController,
+      animation: Listenable.merge([_glowController, _badgeController]),
       builder: (context, _) {
         final glowIntensity = 0.3 + (_glowController.value * 0.4);
-        return Column(
+        final badgeScale = 1.0 + (_badgeController.value * 0.06);
+        return Stack(
           children: [
-            const Spacer(flex: 3),
-            // Title text
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'Your first recording\n= 10 free minutes',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  height: 1.2,
-                  letterSpacing: -0.5,
+            // Skip button — top right, small, grey, not a distraction
+            Positioned(
+              top: 16,
+              right: 24,
+              child: GestureDetector(
+                onTap: _skipToHome,
+                child: Text(
+                  'Skip',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.25),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 48),
-              child: Text(
-                'Think of an email you need to write.\nJust say it out loud.',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const Spacer(flex: 2),
-            // Glowing record button
-            GestureDetector(
-              onTap: _startRecording,
-              child: SizedBox(
-                width: 220,
-                height: 220,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Outer glow rings
-                    ...List.generate(3, (i) {
-                      final ringOpacity = glowIntensity * (0.25 - (i * 0.06));
-                      final ringSize = 160.0 + (i * 30.0);
-                      return Container(
-                        width: ringSize,
-                        height: ringSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFF3B82F6).withOpacity(ringOpacity.clamp(0.0, 1.0)),
-                            width: 1.5,
-                          ),
-                        ),
-                      );
-                    }),
-                    // Glow shadow
-                    Container(
-                      width: 140,
-                      height: 140,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF3B82F6).withOpacity(glowIntensity * 0.8),
-                            blurRadius: 60,
-                            spreadRadius: 15,
-                          ),
+
+            // Main content
+            Column(
+              children: [
+                const Spacer(flex: 2),
+
+                // Reward badge — the hero element
+                Transform.scale(
+                  scale: badgeScale,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(40),
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF3B82F6).withOpacity(0.2),
+                          const Color(0xFF2563EB).withOpacity(0.1),
                         ],
                       ),
-                    ),
-                    // Button
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                        ),
+                      border: Border.all(
+                        color: const Color(0xFF3B82F6).withOpacity(0.4),
+                        width: 1.5,
                       ),
-                      child: const Icon(Icons.mic, size: 56, color: Colors.white),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.card_giftcard_rounded,
+                          color: const Color(0xFF60A5FA),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          '10 FREE MINUTES',
+                          style: TextStyle(
+                            color: Color(0xFF60A5FA),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 32),
+
+                // Main headline — massive, unmissable
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    'Just talk\nfor 10 seconds.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 38,
+                      fontWeight: FontWeight.w900,
+                      height: 1.15,
+                      letterSpacing: -1,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 48),
+                  child: Text(
+                    'Say anything. We\'ll turn it into\nperfectly written text.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.4),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+                const Spacer(flex: 2),
+
+                // Glowing record button
+                GestureDetector(
+                  onTap: _startRecording,
+                  child: SizedBox(
+                    width: 220,
+                    height: 220,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Outer glow rings
+                        ...List.generate(3, (i) {
+                          final ringOpacity = glowIntensity * (0.2 - (i * 0.05));
+                          final ringSize = 160.0 + (i * 30.0);
+                          return Container(
+                            width: ringSize,
+                            height: ringSize,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF3B82F6).withOpacity(ringOpacity.clamp(0.0, 1.0)),
+                                width: 1.5,
+                              ),
+                            ),
+                          );
+                        }),
+                        // Glow shadow
+                        Container(
+                          width: 140,
+                          height: 140,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF3B82F6).withOpacity(glowIntensity * 0.7),
+                                blurRadius: 60,
+                                spreadRadius: 15,
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Button
+                        Container(
+                          width: 120,
+                          height: 120,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                            ),
+                          ),
+                          child: const Icon(Icons.mic, size: 56, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const Spacer(flex: 3),
+              ],
             ),
-            const Spacer(flex: 1),
-            // Hint text
-            Text(
-              'Takes 10 seconds',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.3),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const Spacer(flex: 2),
           ],
         );
       },
@@ -402,9 +481,9 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
         const SizedBox(height: 60),
         // Stop button or processing indicator
         if (_isProcessing)
-          Column(
+          const Column(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 80,
                 height: 80,
                 child: CircularProgressIndicator(
@@ -412,8 +491,8 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                   valueColor: AlwaysStoppedAnimation(Color(0xFF3B82F6)),
                 ),
               ),
-              const SizedBox(height: 16),
-              const Text(
+              SizedBox(height: 16),
+              Text(
                 'Getting perfect transcription',
                 style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
               ),
