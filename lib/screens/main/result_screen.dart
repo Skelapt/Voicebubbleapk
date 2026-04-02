@@ -55,9 +55,12 @@ class _ResultScreenState extends State<ResultScreen> {
 
   // Active refinement tracking
   RefinementType? _activeRefinement;
-  
+
   // Track saved item ID to prevent duplicates
   String? _savedItemId;
+
+  // First-time instructions nudge
+  bool _showInstructionsNudge = false;
 
   @override
   void initState() {
@@ -65,6 +68,24 @@ class _ResultScreenState extends State<ResultScreen> {
     // Don't initialize _savedItemId from continueFromItemId anymore
     // Continue should always create NEW items, not update existing ones
     _generateRewrite();
+    _checkInstructionsNudge();
+  }
+
+  Future<void> _checkInstructionsNudge() async {
+    final box = await Hive.openBox('usage_data');
+    final shown = box.get('instructions_nudge_shown', defaultValue: false);
+    if (!shown && mounted) {
+      setState(() => _showInstructionsNudge = true);
+    }
+  }
+
+  Future<void> _dismissInstructionsNudge() async {
+    if (!_showInstructionsNudge) return;
+    final box = await Hive.openBox('usage_data');
+    await box.put('instructions_nudge_shown', true);
+    if (mounted) {
+      setState(() => _showInstructionsNudge = false);
+    }
   }
 
   Future<void> _generateRewrite() async {
@@ -942,33 +963,64 @@ class _ResultScreenState extends State<ResultScreen> {
                         // Add More and Rewrite buttons (right under output box)
                         Row(
                           children: [
-                            // Instructions Button (voice-based)
+                            // Instructions Button (voice-based) with optional first-time glow
                             Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => _showInstructionsVoiceRecording(context),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: primaryColor,
-                                  side: BorderSide(color: primaryColor, width: 2),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.add, size: 18),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Instructions',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
+                              child: _showInstructionsNudge
+                                  ? _InstructionsNudgeGlow(
+                                      child: OutlinedButton(
+                                        onPressed: () {
+                                          _dismissInstructionsNudge();
+                                          _showInstructionsVoiceRecording(context);
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: primaryColor,
+                                          side: BorderSide(color: primaryColor, width: 2),
+                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.add, size: 18),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'Instructions',
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : OutlinedButton(
+                                      onPressed: () => _showInstructionsVoiceRecording(context),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: primaryColor,
+                                        side: BorderSide(color: primaryColor, width: 2),
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                      child: const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.add, size: 18),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Instructions',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
                             ),
                             const SizedBox(width: 12),
                             // Rewrite Button
@@ -1007,6 +1059,20 @@ class _ResultScreenState extends State<ResultScreen> {
                             ),
                           ],
                         ),
+                        // First-time instructions nudge hint
+                        if (_showInstructionsNudge)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(
+                              'Make it funnier, longer, or anything you like',
+                              style: TextStyle(
+                                color: const Color(0xFF3B82F6).withOpacity(0.6),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                         const SizedBox(height: 24),
 
                         // Refinement Buttons
@@ -1252,6 +1318,59 @@ class _ResultScreenState extends State<ResultScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Pulsing blue glow wrapper for the instructions button (first-time nudge).
+class _InstructionsNudgeGlow extends StatefulWidget {
+  final Widget child;
+  const _InstructionsNudgeGlow({required this.child});
+
+  @override
+  State<_InstructionsNudgeGlow> createState() => _InstructionsNudgeGlowState();
+}
+
+class _InstructionsNudgeGlowState extends State<_InstructionsNudgeGlow>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1800),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final glowOpacity = 0.15 + (_controller.value * 0.25);
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF3B82F6).withOpacity(glowOpacity),
+                blurRadius: 16,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }

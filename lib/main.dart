@@ -277,7 +277,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case 1:
         return PermissionsScreen(onComplete: _nextStep);
       case 2:
-        return FirstRecordingScreen(onComplete: () => widget.onComplete(context));
+        return const FirstRecordingScreen();
       default:
         return const MainNavigation();
     }
