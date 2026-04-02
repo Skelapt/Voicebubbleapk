@@ -28,10 +28,11 @@ class FeatureGate {
       }
 
       if (context.mounted) {
-        final hasBonus = await _usageService.hasClaimedReviewBonus();
+        final totalLimit = await _usageService.getTotalLimit(isPro: isPro);
+        final totalMinutes = totalLimit ~/ 60;
         final reason = isPro
             ? 'You\'ve used all 90 minutes this month.'
-            : 'You\'ve used all ${hasBonus ? '6' : '5'} minutes of free STT & AI.';
+            : 'You\'ve used all $totalMinutes minutes of free STT & AI.';
         final shouldUpgrade = await UpgradeDialog.show(
           context,
           reason: reason,

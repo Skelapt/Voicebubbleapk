@@ -1,13 +1,14 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
 /// Tracks STT and AI usage for free/pro limits
-/// FREE: 5 minutes (300 seconds) + 1 minute bonus for review
+/// FREE: 5 minutes (300 seconds) + 10 min onboarding bonus + 1 min review bonus
 /// PRO: 90 minutes (5400 seconds)
 class UsageService {
   static const String _boxName = 'usage_data';
   static const int freeSecondsLimit = 300;      // 5 minutes
   static const int proSecondsLimit = 5400;      // 90 minutes
   static const int reviewBonusSeconds = 60;     // 1 minute bonus for review
+  static const int onboardingBonusSeconds = 600; // 10 minutes bonus for first recording
 
   // Singleton
   static final UsageService _instance = UsageService._internal();
@@ -43,12 +44,15 @@ class UsageService {
     return (limit - used).clamp(0, limit);
   }
 
-  /// Get total limit including review bonus
+  /// Get total limit including bonuses
   Future<int> getTotalLimit({required bool isPro}) async {
     if (isPro) return proSecondsLimit;
 
     final hasReviewBonus = await hasClaimedReviewBonus();
-    return freeSecondsLimit + (hasReviewBonus ? reviewBonusSeconds : 0);
+    final hasOnboardingBonus = await hasClaimedOnboardingBonus();
+    return freeSecondsLimit
+        + (hasReviewBonus ? reviewBonusSeconds : 0)
+        + (hasOnboardingBonus ? onboardingBonusSeconds : 0);
   }
 
   /// Check if review bonus has been claimed
@@ -63,6 +67,21 @@ class UsageService {
     final alreadyClaimed = box.get('review_bonus_claimed', defaultValue: false);
     if (alreadyClaimed) return false;
     await box.put('review_bonus_claimed', true);
+    return true;
+  }
+
+  /// Check if onboarding bonus has been claimed
+  Future<bool> hasClaimedOnboardingBonus() async {
+    final box = await Hive.openBox(_boxName);
+    return box.get('onboarding_bonus_claimed', defaultValue: false);
+  }
+
+  /// Claim the onboarding bonus (adds 10 minutes). Returns true if successfully claimed.
+  Future<bool> claimOnboardingBonus() async {
+    final box = await Hive.openBox(_boxName);
+    final alreadyClaimed = box.get('onboarding_bonus_claimed', defaultValue: false);
+    if (alreadyClaimed) return false;
+    await box.put('onboarding_bonus_claimed', true);
     return true;
   }
 
