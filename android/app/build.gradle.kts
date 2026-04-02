@@ -30,7 +30,7 @@ android {
         applicationId = "com.voicebubble.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 36
+        versionCode = 37
         versionName = "3.6.0"
 
         ndk {
@@ -80,9 +80,13 @@ android {
     }
 
     // Fix for 16 KB memory page size requirement (Android 15+)
+    // Use compressed shared libraries to ensure 16 KB page size compatibility.
+    // When uncompressed (useLegacyPackaging = false), .so files must be 16 KB
+    // zip-aligned AND 16 KB ELF-aligned. Flutter's prebuilt engine libs may not
+    // meet this requirement. Compressing them avoids the issue entirely.
     packaging {
         jniLibs {
-            useLegacyPackaging = false
+            useLegacyPackaging = true
         }
     }
 }
