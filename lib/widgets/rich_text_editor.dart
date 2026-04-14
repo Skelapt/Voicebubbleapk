@@ -643,11 +643,11 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
 
     if (!mounted) return;
 
-    // Read language code FROM CURRENT STATE, not inside builder, to guarantee
-    // we get the user's latest selectedLanguage at the moment they tap Rewrite.
-    final currentLanguage = Provider.of<AppStateProvider>(context, listen: false).selectedLanguage;
-    debugPrint('🌐 Rewrite language: ${currentLanguage.code} (${currentLanguage.name})');
-    final currentLanguageCode = currentLanguage.code;
+    // Capture the provider here so the sheet can always read the latest
+    // language at the moment the user taps a preset — EXACTLY like the old
+    // ResultScreen._generateRewrite() did: appState.selectedLanguage.code
+    // read fresh at AI-call time (not at sheet-open time).
+    final appStateProvider = Provider.of<AppStateProvider>(context, listen: false);
 
     // Show full AI presets bottom sheet (Letterly-style Rewrite)
     showModalBottomSheet(
@@ -659,7 +659,7 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
       ),
       builder: (ctx) => _RewritePresetSheet(
         textToRewrite: textToRewrite,
-        languageCode: currentLanguageCode,
+        appState: appStateProvider,
         onResult: (newText) {
           Navigator.pop(ctx);
           if (_hasSelection) {
@@ -1694,26 +1694,9 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                         if (widget.showTopToolbar && !widget.readOnly)
                           const SizedBox(width: 8),
 
-                        // Continue recording — logo icon
-                        if (widget.onContinuePressed != null)
-                          GestureDetector(
-                            onTap: widget.onContinuePressed,
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.06),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(8),
-                                child: Image.asset(
-                                  'assets/logo.png',
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                            ),
-                          ),
+                        // Copy button — same size as other bottom bar icons
+                        if (!widget.readOnly)
+                          _InlineCopyButton(onCopy: _copyDocumentToClipboard),
                       ],
                     ),
                   ),
@@ -1739,13 +1722,39 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                 ),
               ),
 
-            // Copy button — floats above bottom bar, bottom right
-            if (!widget.readOnly)
+            // Continue recording — floats above bottom bar, bottom right (44x44)
+            if (!widget.readOnly && widget.onContinuePressed != null)
               Positioned(
                 right: 14,
                 bottom: 70,
-                child: _CopyButton(
-                  onCopy: _copyDocumentToClipboard,
+                child: GestureDetector(
+                  onTap: widget.onContinuePressed,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A1A2E),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.12),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.35),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Image.asset(
+                        'assets/logo.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -1772,7 +1781,53 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
   }
 }
 
-/// Small tappable copy button with a brief "copied" check-state.
+/// Small copy button for the bottom bar — same 40x40 footprint as other
+/// bottom bar icons so the row stays uniform. Shows a brief green check
+/// when tapped, then reverts.
+class _InlineCopyButton extends StatefulWidget {
+  final Future<void> Function() onCopy;
+  const _InlineCopyButton({required this.onCopy});
+
+  @override
+  State<_InlineCopyButton> createState() => _InlineCopyButtonState();
+}
+
+class _InlineCopyButtonState extends State<_InlineCopyButton> {
+  bool _copied = false;
+
+  Future<void> _handleTap() async {
+    await widget.onCopy();
+    if (!mounted) return;
+    setState(() => _copied = true);
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (mounted) setState(() => _copied = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _handleTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: _copied
+              ? const Color(0xFF10B981).withOpacity(0.2)
+              : Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Icon(
+          _copied ? Icons.check_rounded : Icons.copy_rounded,
+          color: _copied ? const Color(0xFF10B981) : Colors.white54,
+          size: 20,
+        ),
+      ),
+    );
+  }
+}
+
+/// Floating copy button (legacy — no longer used, kept if reintroduced).
 class _CopyButton extends StatefulWidget {
   final Future<void> Function() onCopy;
   const _CopyButton({required this.onCopy});
@@ -1868,12 +1923,12 @@ class _BottomBarIcon extends StatelessWidget {
 class _RewritePresetSheet extends StatefulWidget {
   final String textToRewrite;
   final Function(String) onResult;
-  final String languageCode;
+  final AppStateProvider appState;
 
   const _RewritePresetSheet({
     required this.textToRewrite,
     required this.onResult,
-    required this.languageCode,
+    required this.appState,
   });
 
   @override
@@ -2023,11 +2078,14 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
 
     try {
       final aiService = AIService();
-      debugPrint('🎨 Rewriting with preset=${preset.id} language=${widget.languageCode}');
+      // Read language FRESH at AI-call time — exact pattern from the old
+      // ResultScreen._generateRewrite() that worked reliably.
+      final language = widget.appState.selectedLanguage;
+      debugPrint('🎨 Rewriting with preset=${preset.id} language=${language.code} (${language.name})');
       final result = await aiService.rewriteText(
         widget.textToRewrite,
         preset,
-        widget.languageCode,
+        language.code,
       );
       widget.onResult(result);
     } catch (e) {
