@@ -211,36 +211,34 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
               const SizedBox(height: 28),
 
-              // Two price cards — IDENTICAL size (height 100). Wrapped in a
-              // Padding that reserves vertical space so the floating
-              // "7-DAY TRIAL" badge on the yearly card can overhang the top
-              // without clipping into the feature bullets above.
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _priceCard(
-                        selected: !_isYearlySelected,
-                        onTap: () => setState(() => _isYearlySelected = false),
-                        label: 'Monthly',
-                        price: monthlyPrice,
-                        subtitle: monthlySubtitle,
-                      ),
+              // Two price cards — IDENTICAL size (height 100). No outer
+              // padding: the floating "7-DAY TRIAL" badge is a Positioned
+              // overlay at top: -10 inside a Stack(clipBehavior: Clip.none),
+              // so it overhangs into the SizedBox(height: 28) above without
+              // displacing anything else on the page.
+              Row(
+                children: [
+                  Expanded(
+                    child: _priceCard(
+                      selected: !_isYearlySelected,
+                      onTap: () => setState(() => _isYearlySelected = false),
+                      label: 'Monthly',
+                      price: monthlyPrice,
+                      subtitle: monthlySubtitle,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _priceCard(
-                        selected: _isYearlySelected,
-                        onTap: () => setState(() => _isYearlySelected = true),
-                        label: 'Yearly',
-                        price: yearlyPrice,
-                        subtitle: yearlySubtitle,
-                        badge: '7-DAY TRIAL',
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _priceCard(
+                      selected: _isYearlySelected,
+                      onTap: () => setState(() => _isYearlySelected = true),
+                      label: 'Yearly',
+                      price: yearlyPrice,
+                      subtitle: yearlySubtitle,
+                      badge: '7-DAY TRIAL',
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 20),
