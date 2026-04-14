@@ -70,9 +70,9 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
     }
 
     final remaining = (_totalLimit - _secondsUsed).clamp(0, _totalLimit);
-    final percentage = _secondsUsed / _totalLimit;
-    final isLow = percentage > 0.8;
-    final isExhausted = remaining <= 0;
+    final percentage = _isPro ? 0.0 : (_secondsUsed / _totalLimit); // Pro = always empty bar (nothing used up)
+    final isLow = _isPro ? false : percentage > 0.8;
+    final isExhausted = _isPro ? false : remaining <= 0;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -202,13 +202,15 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
                 ),
               ),
               Text(
-                '${_formatTime(remaining)} remaining',
+                _isPro ? 'Unlimited' : '${_formatTime(remaining)} remaining',
                 style: TextStyle(
-                  color: isExhausted
-                      ? const Color(0xFFEF4444)
-                      : isLow
-                          ? accentColor
-                          : const Color(0xFF10B981),
+                  color: _isPro
+                      ? const Color(0xFF7C6AE8)
+                      : isExhausted
+                          ? const Color(0xFFEF4444)
+                          : isLow
+                              ? accentColor
+                              : const Color(0xFF10B981),
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -261,7 +263,7 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
                 Expanded(
                   child: Text(
                     _isPro
-                        ? 'Pro: 90 minutes of STT & AI per month'
+                        ? 'Pro: Unlimited recordings & AI'
                         : 'Free: ${_hasReviewBonus ? '6' : '5'} minutes of STT & AI per month',
                     style: TextStyle(
                       color: secondaryTextColor,

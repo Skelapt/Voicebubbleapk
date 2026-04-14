@@ -24,7 +24,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
   bool _isLoading = true;
   bool _isPurchasing = false;
   String? _errorMessage;
-  bool _isYearlySelected = false; // Track selected plan
+  bool _isYearlySelected = false;
 
   @override
   void initState() {
@@ -49,11 +49,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
     });
 
     try {
-      // Use selected product ID (monthly or yearly)
       final productId = _isYearlySelected
           ? SubscriptionService.yearlyProductId
           : SubscriptionService.monthlyProductId;
-      
+
       final success = await _subscriptionService.purchaseSubscription(productId);
 
       if (!success) {
@@ -65,11 +64,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
         return;
       }
 
-      // Wait for confirmation
       for (int i = 0; i < 6; i++) {
         final active = await _subscriptionService.hasActiveSubscription();
         if (active) {
-          // Track subscription purchased
           AnalyticsService().logSubscriptionPurchased(
             productId: productId,
             priceString: _isYearlySelected ? 'yearly' : 'monthly',
@@ -83,8 +80,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
       setState(() {
         _isPurchasing = false;
-        _errorMessage =
-            'Processing… If it succeeded, tap “Restore Purchase”.';
+        _errorMessage = 'Processing... If it succeeded, tap "Restore Purchase".';
       });
     } catch (_) {
       if (!mounted) return;
@@ -125,8 +121,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final yearly = _subscriptionService.yearlyProduct;
     final monthlyPrice = monthly?.price ?? "\$4.99";
     final yearlyPrice = yearly?.price ?? "\$49.99";
-    
-    // Calculate savings percentage if both prices available
+
     String savingsText = "Save 17%";
     if (monthly != null && yearly != null) {
       final monthlyRaw = monthly.rawPrice;
@@ -139,279 +134,258 @@ class _PaywallScreenState extends State<PaywallScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.black.withOpacity(0.70),
+      backgroundColor: const Color(0xFF0D0D1A),
       body: SafeArea(
-        child: Center(
-          child: Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF0D47A1),
-                  Color(0xFF1565C0),
-                  Color(0xFF1E88E5),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            children: [
+              // Close button
+              Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: GestureDetector(
+                    onTap: widget.onClose,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, color: Colors.white54, size: 20),
+                    ),
+                  ),
+                ),
+              ),
+
+              const Spacer(flex: 2),
+
+              // Logo
+              Image.asset(
+                'assets/logo.png',
+                width: 80,
+                height: 80,
+              ),
+              const SizedBox(height: 24),
+
+              // Title
+              const Text(
+                'Go Pro',
+                style: TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Unlock the full power of VoiceBubble',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.white.withOpacity(0.5),
+                ),
+              ),
+              const SizedBox(height: 40),
+
+              // Two bullet points — clean and simple
+              _bulletPoint('Best-in-class transcription'),
+              const SizedBox(height: 16),
+              _bulletPoint('Unlimited recordings and AI'),
+
+              const SizedBox(height: 48),
+
+              // Price toggle
+              Row(
+                children: [
+                  // Monthly
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isYearlySelected = false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        decoration: BoxDecoration(
+                          color: !_isYearlySelected
+                              ? const Color(0xFF7C6AE8).withOpacity(0.15)
+                              : Colors.white.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: !_isYearlySelected
+                                ? const Color(0xFF7C6AE8)
+                                : Colors.white.withOpacity(0.08),
+                            width: !_isYearlySelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Monthly',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white.withOpacity(0.6),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              monthlyPrice,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Yearly
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isYearlySelected = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        decoration: BoxDecoration(
+                          color: _isYearlySelected
+                              ? const Color(0xFF7C6AE8).withOpacity(0.15)
+                              : Colors.white.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _isYearlySelected
+                                ? const Color(0xFF7C6AE8)
+                                : Colors.white.withOpacity(0.08),
+                            width: _isYearlySelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              savingsText,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF7C6AE8),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              yearlyPrice,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              '/year',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white.withOpacity(0.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.4),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Close
-                Align(
-                  alignment: Alignment.topRight,
-                  child: IconButton(
-                    onPressed: widget.onClose,
-                    icon: const Icon(Icons.close_rounded, color: Colors.white),
-                  ),
-                ),
-                const SizedBox(height: 4),
 
-                // TITLE
-                const Text(
-                  'Unlock Premium',
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
+              const SizedBox(height: 24),
 
-                Text(
-                  'Full access to everything VoiceBubble offers',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.85),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-
-                // FEATURES (MOVED ABOVE PRICING)
-                _feature(Icons.timer_rounded, '90 mins speech-to-text'),
-                _feature(Icons.auto_awesome_rounded, 'Premium rewrite quality'),
-                _feature(Icons.highlight_rounded, 'Highlight text and choose AI preset'),
-                _feature(Icons.upload_file_rounded, 'Upload audio files'),
-                _feature(Icons.workspace_premium_rounded, 'Priority support'),
-                const SizedBox(height: 24),
-
-                // TWO PRICE BOXES SIDE BY SIDE
-                Row(
-                  children: [
-                    // MONTHLY BOX
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _isYearlySelected = false),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: !_isYearlySelected 
-                                ? Colors.white.withOpacity(0.3)
-                                : Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: !_isYearlySelected 
-                                  ? Colors.white 
-                                  : Colors.white.withOpacity(0.3),
-                              width: !_isYearlySelected ? 2.5 : 1,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              const Text(
-                                'Monthly',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                monthlyPrice,
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'per month',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white.withOpacity(0.7),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // YEARLY BOX
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _isYearlySelected = true),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: _isYearlySelected 
-                                ? Colors.white.withOpacity(0.3)
-                                : Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _isYearlySelected 
-                                  ? Colors.white 
-                                  : Colors.white.withOpacity(0.3),
-                              width: _isYearlySelected ? 2.5 : 1,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              const Text(
-                                'Yearly',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                yearlyPrice,
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                savingsText,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.greenAccent,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-
-                // ERROR
-                if (_errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-
-                // SUBSCRIBE
-                _button(
-                  label: _isPurchasing ? 'Processing…' : 'Subscribe',
-                  filled: true,
-                  onTap: _isLoading || _isPurchasing ? null : _handlePurchase,
-                ),
-                const SizedBox(height: 10),
-
-                // RESTORE
-                TextButton(
-                  onPressed: _isLoading || _isPurchasing ? null : _handleRestore,
+              // Error
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
-                    'Restore Purchase',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white.withOpacity(0.9),
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+              // Subscribe button
+              GestureDetector(
+                onTap: _isLoading || _isPurchasing ? null : _handlePurchase,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C6AE8),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _isPurchasing ? 'Processing...' : 'Subscribe',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Restore
+              GestureDetector(
+                onTap: _isLoading || _isPurchasing ? null : _handleRestore,
+                child: Text(
+                  'Restore Purchase',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withOpacity(0.4),
+                  ),
+                ),
+              ),
+
+              const Spacer(flex: 3),
+
+              // Legal
+              Text(
+                'Cancel anytime. Subscription auto-renews.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withOpacity(0.25),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _feature(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 18, color: const Color(0xFF1E88E5)),
+  Widget _bulletPoint(String text) {
+    return Row(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: const Color(0xFF7C6AE8).withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 13, color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _button({
-    required String label,
-    required bool filled,
-    required VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: filled ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white, width: filled ? 0 : 2),
+          child: const Icon(Icons.check, color: Color(0xFF7C6AE8), size: 16),
         ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: filled ? const Color(0xFF0D47A1) : Colors.white,
-            ),
+        const SizedBox(width: 14),
+        Text(
+          text,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
           ),
         ),
-      ),
+      ],
     );
   }
 }
