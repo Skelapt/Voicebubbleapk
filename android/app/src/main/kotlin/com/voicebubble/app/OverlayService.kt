@@ -199,23 +199,13 @@ class OverlayService : Service() {
         }
         
         try {
-            // Create background view with gradient
-            val backgroundView = View(this).apply {
-                layoutParams = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT
-                )
-                setBackgroundResource(R.drawable.bubble_background)
-            }
-            container.addView(backgroundView)
-            
-            // Create microphone icon
+            // Just the logo — no background, transparent bubble
             val iconView = ImageView(this).apply {
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT
                 ).apply {
-                    val padding = dpToPx(9) // Perfect padding for 36dp bubble
+                    val padding = dpToPx(4)
                     setMargins(padding, padding, padding, padding)
                 }
                 setImageResource(R.drawable.logo)

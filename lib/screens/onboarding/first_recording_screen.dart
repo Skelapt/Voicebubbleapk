@@ -246,7 +246,7 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Try Again', style: TextStyle(color: Color(0xFF3B82F6), fontWeight: FontWeight.w600)),
+              child: const Text('Try Again', style: TextStyle(color: Color(0xFF7C6AE8), fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -303,12 +303,12 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                       borderRadius: BorderRadius.circular(40),
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF3B82F6).withOpacity(0.2),
+                          const Color(0xFF7C6AE8).withOpacity(0.2),
                           const Color(0xFF2563EB).withOpacity(0.1),
                         ],
                       ),
                       border: Border.all(
-                        color: const Color(0xFF3B82F6).withOpacity(0.4),
+                        color: const Color(0xFF7C6AE8).withOpacity(0.4),
                         width: 1.5,
                       ),
                     ),
@@ -387,7 +387,7 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: const Color(0xFF3B82F6).withOpacity(ringOpacity.clamp(0.0, 1.0)),
+                                color: const Color(0xFF7C6AE8).withOpacity(ringOpacity.clamp(0.0, 1.0)),
                                 width: 1.5,
                               ),
                             ),
@@ -401,7 +401,7 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF3B82F6).withOpacity(glowIntensity * 0.7),
+                                color: const Color(0xFF7C6AE8).withOpacity(glowIntensity * 0.7),
                                 blurRadius: 60,
                                 spreadRadius: 15,
                               ),
@@ -417,7 +417,7 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                              colors: [Color(0xFF7C6AE8), Color(0xFF2563EB)],
                             ),
                           ),
                           child: const Icon(Icons.mic, size: 56, color: Colors.white),
@@ -455,7 +455,7 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                 margin: const EdgeInsets.symmetric(horizontal: 1.5),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2),
-                  color: const Color(0xFF3B82F6),
+                  color: const Color(0xFF7C6AE8),
                 ),
               );
             }),
@@ -492,7 +492,7 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                 height: 80,
                 child: CircularProgressIndicator(
                   strokeWidth: 4,
-                  valueColor: AlwaysStoppedAnimation(Color(0xFF3B82F6)),
+                  valueColor: AlwaysStoppedAnimation(Color(0xFF7C6AE8)),
                 ),
               ),
               SizedBox(height: 16),
@@ -510,7 +510,7 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
               height: 80,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0xFF3B82F6),
+                color: Color(0xFF7C6AE8),
               ),
               child: Center(
                 child: Container(

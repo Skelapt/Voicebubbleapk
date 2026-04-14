@@ -53,7 +53,7 @@ class _FeatureShowcaseScreenState extends State<FeatureShowcaseScreen> with Tick
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF000000), Color(0xFF0A0A0A), Color(0xFF0A0A0A)],
+            colors: [Color(0xFF0D0D1A), Color(0xFF0A0A0A), Color(0xFF0A0A0A)],
           ),
         ),
         child: SafeArea(
@@ -76,7 +76,7 @@ class _FeatureShowcaseScreenState extends State<FeatureShowcaseScreen> with Tick
                         widget.onComplete();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF3B82F6),
+                        backgroundColor: const Color(0xFF7C6AE8),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,
@@ -132,7 +132,7 @@ class _Page1Voice extends StatelessWidget {
                           width: 130, height: 130,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF3B82F6).withOpacity(opacity), width: 2),
+                            border: Border.all(color: const Color(0xFF7C6AE8).withOpacity(opacity), width: 2),
                           ),
                         ),
                       );
@@ -141,14 +141,14 @@ class _Page1Voice extends StatelessWidget {
                       width: 160, height: 160,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: const Color(0xFF3B82F6).withOpacity(0.5), blurRadius: 50, spreadRadius: 15)],
+                        boxShadow: [BoxShadow(color: const Color(0xFF7C6AE8).withOpacity(0.5), blurRadius: 50, spreadRadius: 15)],
                       ),
                     ),
                     Container(
                       width: 130, height: 130,
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF3B82F6), Color(0xFF2563EB)]),
+                        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF7C6AE8), Color(0xFF2563EB)]),
                       ),
                       child: const Icon(Icons.mic, size: 60, color: Colors.white),
                     ),

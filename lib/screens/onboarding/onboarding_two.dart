@@ -64,9 +64,9 @@ class _OnboardingTwoState extends State<OnboardingTwo> with TickerProviderStateM
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF000000), // Pure black
+              Color(0xFF0D0D1A), // Pure black
               Color(0xFF0A0A0A),
-              Color(0xFF1A1A1A),
+              Color(0xFF1A1A2E),
             ],
           ),
         ),
@@ -121,10 +121,10 @@ class _OnboardingTwoState extends State<OnboardingTwo> with TickerProviderStateM
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A1A1A),
+                            color: const Color(0xFF1A1A2E),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: const Color(0xFF3B82F6).withOpacity(0.3),
+                              color: const Color(0xFF7C6AE8).withOpacity(0.3),
                               width: 2,
                             ),
                           ),
@@ -151,14 +151,14 @@ class _OnboardingTwoState extends State<OnboardingTwo> with TickerProviderStateM
                   child: ElevatedButton(
                     onPressed: widget.onNext,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6), // Blue button
+                      backgroundColor: const Color(0xFF7C6AE8), // Blue button
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                       elevation: 0,
-                      shadowColor: const Color(0xFF3B82F6).withOpacity(0.5),
+                      shadowColor: const Color(0xFF7C6AE8).withOpacity(0.5),
                     ),
                     child: const Text(
                       'Continue',
@@ -215,13 +215,13 @@ class _OnboardingTwoState extends State<OnboardingTwo> with TickerProviderStateM
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF3B82F6), // Blue
+                      Color(0xFF7C6AE8), // Blue
                       Color(0xFF2563EB),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF3B82F6).withOpacity(0.6),
+                      color: const Color(0xFF7C6AE8).withOpacity(0.6),
                       blurRadius: 40,
                       offset: const Offset(0, 20),
                     ),

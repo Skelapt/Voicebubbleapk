@@ -387,6 +387,9 @@ class RichTextEditor extends StatefulWidget {
   final String? backgroundId;
   final Function(String?)? onBackgroundChanged;
 
+  // Continue recording callback
+  final VoidCallback? onContinuePressed;
+
   // Content type for auto-initialization (e.g., 'todo' to auto-add checkboxes)
   final String? contentType;
 
@@ -410,6 +413,7 @@ class RichTextEditor extends StatefulWidget {
     this.onImageChanged,
     this.backgroundId,
     this.onBackgroundChanged,
+    this.onContinuePressed,
     this.showTopToolbar = true,
     this.isPinned = false,
     this.onPinChanged,
@@ -1660,22 +1664,35 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
 
                         const Spacer(),
 
-                        // Background picker
-                        if (widget.showTopToolbar && !widget.readOnly)
-                          _BottomBarIcon(
-                            icon: Icons.palette_outlined,
-                            color: Colors.white54,
-                            onTap: _showBackgroundPicker,
-                          ),
-                        if (widget.showTopToolbar && !widget.readOnly)
-                          const SizedBox(width: 8),
-
-                        // More options
+                        // More options (background, etc)
                         if (widget.showTopToolbar && !widget.readOnly)
                           _BottomBarIcon(
                             icon: Icons.more_horiz,
                             color: Colors.white54,
                             onTap: _showEditorOptionsMenu,
+                          ),
+                        if (widget.showTopToolbar && !widget.readOnly)
+                          const SizedBox(width: 8),
+
+                        // Continue recording — logo icon
+                        if (widget.onContinuePressed != null)
+                          GestureDetector(
+                            onTap: widget.onContinuePressed,
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Image.asset(
+                                  'assets/logo.png',
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
                           ),
                       ],
                     ),

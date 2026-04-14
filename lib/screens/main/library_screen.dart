@@ -858,18 +858,19 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                   alignment: Alignment.bottomCenter,
                   clipBehavior: Clip.none,
                   children: [
-                    // LEFT FAB: Bubble/Upload Audio — same size as right FAB, blue, file icon
+                    // LEFT FAB: Options — matches search FAB style
                     Positioned(
                       left: 0,
                       bottom: 0,
-                      child: FloatingActionButton(
+                      child: FloatingActionButton.small(
                         heroTag: 'bubble_fab',
-                        onPressed: () => _showOptionsMenu(context, const Color(0xFF1A1A1A), Colors.white),
-                        backgroundColor: const Color(0xFF3B82F6),
-                        child: const Icon(Icons.insert_drive_file, color: Colors.white, size: 24),
+                        onPressed: () => _showOptionsMenu(context, const Color(0xFF1A1A2E), Colors.white),
+                        backgroundColor: const Color(0xFF1A1A2E),
+                        elevation: 2,
+                        child: Icon(Icons.add, color: const Color(0xFF8B8FA3), size: 22),
                       ),
                     ),
-                    // CENTER FAB: Premium mic button
+                    // CENTER FAB: Letterly-style wide pill with logo
                     Positioned(
                       bottom: 0,
                       child: GestureDetector(
@@ -883,45 +884,42 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                           );
                         },
                         child: Container(
-                          width: 68,
-                          height: 68,
+                          width: 140,
+                          height: 52,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
+                            borderRadius: BorderRadius.circular(26),
                             color: const Color(0xFFFAF5F0),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFFAF5F0).withOpacity(0.25),
-                                blurRadius: 20,
-                                offset: const Offset(0, 6),
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(22),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Image.asset(
-                                'assets/logo.png',
-                                fit: BoxFit.contain,
-                              ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            child: Image.asset(
+                              'assets/logo.png',
+                              fit: BoxFit.contain,
                             ),
                           ),
                         ),
                       ),
                     ),
-                    // RIGHT FAB: Search toggle
+                    // RIGHT FAB: Search toggle — small, matching left
                     Positioned(
                       right: 0,
                       bottom: 0,
-                      child: FloatingActionButton(
+                      child: FloatingActionButton.small(
                         heroTag: 'search_fab',
                         onPressed: () => setState(() => _showSearch = !_showSearch),
-                        backgroundColor: surfaceColor,
+                        backgroundColor: const Color(0xFF1A1A2E),
                         elevation: 2,
                         child: Icon(
                           _showSearch ? Icons.close : Icons.search,
-                          color: secondaryTextColor,
-                          size: 24,
+                          color: const Color(0xFF8B8FA3),
+                          size: 20,
                         ),
                       ),
                     ),
@@ -1124,7 +1122,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
 
   Widget _buildLetterlyEmptyState() {
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.45,
+      height: MediaQuery.of(context).size.height * 0.55,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

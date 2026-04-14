@@ -57,9 +57,9 @@ class _OnboardingThreeNewState extends State<OnboardingThreeNew> with TickerProv
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF000000), // Pure black
+              Color(0xFF0D0D1A), // Pure black
               Color(0xFF0A0A0A),
-              Color(0xFF1A1A1A),
+              Color(0xFF1A1A2E),
             ],
           ),
         ),
@@ -144,14 +144,14 @@ class _OnboardingThreeNewState extends State<OnboardingThreeNew> with TickerProv
                   child: ElevatedButton(
                     onPressed: widget.onNext,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6), // Blue button
+                      backgroundColor: const Color(0xFF7C6AE8), // Blue button
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                       elevation: 0,
-                      shadowColor: const Color(0xFF3B82F6).withOpacity(0.5),
+                      shadowColor: const Color(0xFF7C6AE8).withOpacity(0.5),
                     ),
                     child: const Text(
                       'Continue',
@@ -193,15 +193,15 @@ class _OnboardingThreeNewState extends State<OnboardingThreeNew> with TickerProv
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A), // Dark gray
+          color: const Color(0xFF1A1A2E), // Dark gray
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFF3B82F6).withOpacity(0.3), // Blue border
+            color: const Color(0xFF7C6AE8).withOpacity(0.3), // Blue border
             width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF3B82F6).withOpacity(0.1),
+              color: const Color(0xFF7C6AE8).withOpacity(0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -214,7 +214,7 @@ class _OnboardingThreeNewState extends State<OnboardingThreeNew> with TickerProv
               height: 56,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                  colors: [Color(0xFF7C6AE8), Color(0xFF2563EB)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -280,7 +280,7 @@ class _OnboardingThreeNewState extends State<OnboardingThreeNew> with TickerProv
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF3B82F6),
+                  const Color(0xFF7C6AE8),
                   const Color(0xFF2563EB).withOpacity(0.8),
                 ],
                 begin: Alignment.topLeft,
@@ -288,12 +288,12 @@ class _OnboardingThreeNewState extends State<OnboardingThreeNew> with TickerProv
               ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0xFF3B82F6).withOpacity(0.6),
+                color: const Color(0xFF7C6AE8).withOpacity(0.6),
                 width: 2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF3B82F6).withOpacity(glowIntensity),
+                  color: const Color(0xFF7C6AE8).withOpacity(glowIntensity),
                   blurRadius: 30,
                   offset: const Offset(0, 10),
                 ),

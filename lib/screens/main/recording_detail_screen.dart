@@ -352,35 +352,6 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
           },
         ),
       ),
-      // Floating Continue Button (bottom right)
-      floatingActionButton: Consumer<AppStateProvider>(
-        builder: (context, appState, _) {
-          final item = appState.allRecordingItems.firstWhere(
-            (r) => r.id == widget.recordingId,
-            orElse: () => appState.allRecordingItems.isNotEmpty
-                ? appState.allRecordingItems.first
-                : throw Exception('Recording not found'),
-          );
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 50),
-            child: FloatingActionButton(
-              onPressed: () => _handleContinue(context, appState, item),
-              backgroundColor: const Color(0xFFFAF5F0),
-              tooltip: 'Continue recording',
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Image.asset(
-                  'assets/logo.png',
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -464,6 +435,8 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
       // Background support
       backgroundId: item.background,
       onBackgroundChanged: (backgroundId) => _updateItemBackground(appState, item, backgroundId),
+      // Continue recording — same logic as dropdown menu
+      onContinuePressed: () => _handleContinue(context, appState, item),
     );
   }
 
@@ -758,7 +731,9 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
 
   Future<void> _updateItemBackground(AppStateProvider appState, RecordingItem item, String? backgroundId) async {
     try {
-      final updatedItem = item.copyWith(background: backgroundId);
+      final updatedItem = backgroundId == null
+          ? item.copyWith(clearBackground: true)
+          : item.copyWith(background: backgroundId);
       await appState.updateRecording(updatedItem);
       debugPrint('✅ Updated background for item: ${item.id}');
     } catch (e) {

@@ -49,9 +49,9 @@ class _OnboardingFourState extends State<OnboardingFour> with SingleTickerProvid
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF000000), // Pure black
+              Color(0xFF0D0D1A), // Pure black
               Color(0xFF0A0A0A),
-              Color(0xFF1A1A1A),
+              Color(0xFF1A1A2E),
             ],
           ),
         ),
@@ -94,7 +94,7 @@ class _OnboardingFourState extends State<OnboardingFour> with SingleTickerProvid
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: const LinearGradient(
-                                colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                                colors: [Color(0xFF7C6AE8), Color(0xFF2563EB)],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -152,10 +152,10 @@ class _OnboardingFourState extends State<OnboardingFour> with SingleTickerProvid
                         Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A1A1A),
+                            color: const Color(0xFF1A1A2E),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: const Color(0xFF3B82F6).withOpacity(0.2),
+                              color: const Color(0xFF7C6AE8).withOpacity(0.2),
                               width: 1.5,
                             ),
                           ),
@@ -193,14 +193,14 @@ class _OnboardingFourState extends State<OnboardingFour> with SingleTickerProvid
                   child: ElevatedButton(
                     onPressed: widget.onNext,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6), // Blue button
+                      backgroundColor: const Color(0xFF7C6AE8), // Blue button
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                       elevation: 0,
-                      shadowColor: const Color(0xFF3B82F6).withOpacity(0.5),
+                      shadowColor: const Color(0xFF7C6AE8).withOpacity(0.5),
                     ),
                     child: const Text(
                       'Grant Permissions',
@@ -243,15 +243,15 @@ class _OnboardingFourState extends State<OnboardingFour> with SingleTickerProvid
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A), // Dark gray
+          color: const Color(0xFF1A1A2E), // Dark gray
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFF3B82F6).withOpacity(0.3), // Blue border
+            color: const Color(0xFF7C6AE8).withOpacity(0.3), // Blue border
             width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF3B82F6).withOpacity(0.1),
+              color: const Color(0xFF7C6AE8).withOpacity(0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -284,7 +284,7 @@ class _OnboardingFourState extends State<OnboardingFour> with SingleTickerProvid
               height: 56,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                  colors: [Color(0xFF7C6AE8), Color(0xFF2563EB)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),

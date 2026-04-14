@@ -277,7 +277,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         ),
         ),
       ),
-      floatingActionButton: MultiOptionFab(
+      // FAB removed — users add content from inside the editor
+      floatingActionButton: null, /*MultiOptionFab(
         onVoicePressed: () {
           Navigator.push(
             context,
@@ -405,7 +406,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             );
           }
         },
-      ),
+      ),*/
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }

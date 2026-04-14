@@ -282,7 +282,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case 1:
         return PermissionsScreen(onComplete: _nextStep);
       case 2:
-        return const FirstRecordingScreen();
+        // Skip first recording screen — go straight to main app
+        return const MainNavigation();
       default:
         return const MainNavigation();
     }

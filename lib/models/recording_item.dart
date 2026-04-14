@@ -149,6 +149,7 @@ class RecordingItem {
     String? background,
     bool? isPinned,
     bool clearReminder = false, // Flag to explicitly clear reminder
+    bool clearBackground = false, // Flag to explicitly clear background
   }) {
     return RecordingItem(
       id: id ?? this.id,
@@ -171,7 +172,7 @@ class RecordingItem {
       formattedContent: formattedContent ?? this.formattedContent,
       customTitle: customTitle ?? this.customTitle,
       contentType: contentType ?? this.contentType,
-      background: background ?? this.background,
+      background: clearBackground ? null : (background ?? this.background),
       isPinned: isPinned ?? this.isPinned,
     );
   }
