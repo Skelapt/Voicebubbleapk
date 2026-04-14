@@ -36,6 +36,42 @@ class SubscriptionService {
   ProductDetails? get monthlyProduct => _products.where((p) => p.id == monthlyProductId).firstOrNull;
   ProductDetails? get yearlyProduct => _products.where((p) => p.id == yearlyProductId).firstOrNull;
 
+  /// Returns the *recurring* price of a subscription product, skipping any
+  /// free-trial / introductory pricing phases.
+  ///
+  /// On Google Play, a subscription with a 7-day free trial has multiple
+  /// pricing phases. The plugin's default [ProductDetails.price] /
+  /// [ProductDetails.rawPrice] picks the first phase (the £0.00 free trial),
+  /// which makes the paywall display "$0.00". This helper walks the offer's
+  /// pricing phases and returns the first non-zero (regular) phase.
+  ({String formatted, double raw}) regularPriceOf(ProductDetails product) {
+    if (product is GooglePlayProductDetails) {
+      final offers = product.productDetails.subscriptionOfferDetails ?? const [];
+
+      // Prefer the base plan (offers without an offerId are the base plan in
+      // Play Billing v5+), then fall back to any offer.
+      final ordered = [
+        ...offers.where((o) => o.offerId == null || o.offerId!.isEmpty),
+        ...offers.where((o) => o.offerId != null && o.offerId!.isNotEmpty),
+      ];
+
+      for (final offer in ordered) {
+        for (final phase in offer.pricingPhases) {
+          if (phase.priceAmountMicros > 0) {
+            return (
+              formatted: phase.formattedPrice,
+              raw: phase.priceAmountMicros / 1000000.0,
+            );
+          }
+        }
+      }
+    }
+
+    // iOS / fallback: StoreKit's [price] is the regular recurring price;
+    // introductory offers are reported separately, so the default is correct.
+    return (formatted: product.price, raw: product.rawPrice);
+  }
+
   /// Initialize the IAP system
   Future<void> initialize() async {
     debugPrint('🛒 Initializing In-App Purchase system...');
