@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart';
 import '../providers/app_state_provider.dart';
+import '../screens/main/recording_screen.dart';
 import '../services/refinement_service.dart';
 import '../services/ai_service.dart';
 import '../services/feature_gate.dart';
@@ -668,8 +669,78 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
             });
           }
         },
+        onVoiceInstructions: () => _runVoiceInstructions(textToRewrite),
       ),
     );
+  }
+
+  /// OLD INSTRUCTIONS FLOW — reused exactly from the old ResultScreen.
+  /// Opens the recording screen in instructions mode, waits for transcribed
+  /// text, then runs RefinementService.customRefine with the master-prompt
+  /// wrapper that made the old feature a beast.
+  Future<void> _runVoiceInstructions(String textToRewrite) async {
+    if (!mounted) return;
+    final transcription = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const RecordingScreen(isInstructionsMode: true),
+      ),
+    );
+    if (transcription == null || transcription.trim().isEmpty) return;
+    if (!mounted) return;
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF7C6AE8)),
+      ),
+    );
+
+    try {
+      final refinementService = RefinementService();
+      // EXACT pattern from old result_screen.dart _addMoreAndRewrite
+      final combinedPrompt = '$textToRewrite\n\n[User adds: $transcription]';
+      final refined = await refinementService.customRefine(
+        combinedPrompt,
+        "Rewrite the entire text incorporating the user's addition or instruction. Maintain the original style unless the user asks to change it.",
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // close loading
+
+      // Replace text in editor
+      if (_hasSelection) {
+        _replaceSelection(refined);
+      } else {
+        final length = _controller.document.length;
+        _controller.replaceText(0, length - 1, refined, null);
+        setState(() {
+          _hasSelection = false;
+          _selectedText = '';
+        });
+      }
+
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✨ Rewritten with your instructions'),
+          backgroundColor: Color(0xFF10B981),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Instructions failed: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
   }
 
   void _replaceSelection(String newText) {
@@ -1719,7 +1790,7 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
             if (_hasSelection)
               Positioned(
                 right: 16,
-                bottom: 70,
+                bottom: 110,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -1732,7 +1803,91 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                   ),
                 ),
               ),
+
+            // Copy button — floats above bottom bar, bottom right
+            if (!widget.readOnly)
+              Positioned(
+                right: 14,
+                bottom: 70,
+                child: _CopyButton(
+                  onCopy: _copyDocumentToClipboard,
+                ),
+              ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Copy the current plain-text of the editor to the clipboard.
+  Future<void> _copyDocumentToClipboard() async {
+    final text = _controller.document.toPlainText().trim();
+    if (text.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    HapticFeedback.lightImpact();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Copied to clipboard'),
+          backgroundColor: Color(0xFF10B981),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+}
+
+/// Small tappable copy button with a brief "copied" check-state.
+class _CopyButton extends StatefulWidget {
+  final Future<void> Function() onCopy;
+  const _CopyButton({required this.onCopy});
+
+  @override
+  State<_CopyButton> createState() => _CopyButtonState();
+}
+
+class _CopyButtonState extends State<_CopyButton> {
+  bool _copied = false;
+
+  Future<void> _handleTap() async {
+    await widget.onCopy();
+    if (!mounted) return;
+    setState(() => _copied = true);
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (mounted) setState(() => _copied = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _handleTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: _copied
+              ? const Color(0xFF10B981)
+              : const Color(0xFF1A1A2E),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: _copied
+                ? const Color(0xFF10B981)
+                : Colors.white.withOpacity(0.12),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Icon(
+          _copied ? Icons.check_rounded : Icons.copy_rounded,
+          color: Colors.white,
+          size: 20,
         ),
       ),
     );
@@ -1779,11 +1934,13 @@ class _RewritePresetSheet extends StatefulWidget {
   final String textToRewrite;
   final Function(String) onResult;
   final String languageCode;
+  final VoidCallback onVoiceInstructions;
 
   const _RewritePresetSheet({
     required this.textToRewrite,
     required this.onResult,
     required this.languageCode,
+    required this.onVoiceInstructions,
   });
 
   @override
@@ -1796,26 +1953,10 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
   final PresetFavoritesService _favoritesService = PresetFavoritesService();
   Set<String> _favoriteIds = {};
 
-  // Custom instruction state
-  final TextEditingController _instructionController = TextEditingController();
-  final AudioRecorder _instructionRecorder = AudioRecorder();
-  bool _isRecordingInstruction = false;
-  String? _recordingPath;
-
   @override
   void initState() {
     super.initState();
     _loadFavorites();
-    _instructionController.addListener(() {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _instructionController.dispose();
-    _instructionRecorder.dispose();
-    super.dispose();
   }
 
   Future<void> _loadFavorites() async {
@@ -1831,91 +1972,13 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
     await _loadFavorites();
   }
 
-  /// Run a custom instruction against the text using existing backend
-  Future<void> _handleCustomInstruction(String instruction) async {
-    if (_loading || instruction.trim().isEmpty) return;
-
-    final canUse = await FeatureGate.canUseSTT(context);
-    if (!canUse) return;
-
+  /// Close the sheet and let the parent editor run the OLD instructions flow:
+  /// RecordingScreen(isInstructionsMode: true) → transcribe → customRefine
+  /// with the master-prompt wrapper that made the old result screen a beast.
+  void _handleInstructionsTap() {
     HapticFeedback.lightImpact();
-    setState(() {
-      _loading = true;
-      _activePresetId = '_custom';
-    });
-
-    try {
-      final service = RefinementService();
-      final result = await service.customRefine(widget.textToRewrite, instruction.trim());
-      widget.onResult(result);
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Couldn\'t apply instruction: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-      }
-    }
-  }
-
-  /// Tap to start recording instruction. Tap again (stop icon) to stop and run.
-  Future<void> _toggleInstructionRecording() async {
-    if (_loading) return;
-
-    if (_isRecordingInstruction) {
-      // STOP — grab audio, transcribe, fill field, fire instruction
-      setState(() => _isRecordingInstruction = false);
-      try {
-        final path = await _instructionRecorder.stop();
-        if (path == null) return;
-        final file = File(path);
-        if (!await file.exists()) return;
-
-        setState(() {
-          _loading = true;
-          _activePresetId = '_custom';
-        });
-
-        final aiService = AIService();
-        final transcription = await aiService.transcribeAudio(file);
-        if (transcription.trim().isEmpty) {
-          if (mounted) setState(() => _loading = false);
-          return;
-        }
-        _instructionController.text = transcription.trim();
-        setState(() => _loading = false);
-        await _handleCustomInstruction(transcription);
-      } catch (e) {
-        if (mounted) {
-          setState(() => _loading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Voice instruction failed: $e'), backgroundColor: const Color(0xFFEF4444)),
-          );
-        }
-      }
-    } else {
-      // START recording
-      try {
-        if (!await _instructionRecorder.hasPermission()) return;
-        final dir = await getTemporaryDirectory();
-        _recordingPath = '${dir.path}/instruction_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        await _instructionRecorder.start(
-          const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100),
-          path: _recordingPath!,
-        );
-        HapticFeedback.mediumImpact();
-        setState(() => _isRecordingInstruction = true);
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Mic permission needed: $e'), backgroundColor: const Color(0xFFEF4444)),
-          );
-        }
-      }
-    }
+    Navigator.pop(context);
+    widget.onVoiceInstructions();
   }
 
   Future<void> _handlePresetTap(Preset preset) async {
@@ -2079,103 +2142,77 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
     );
   }
 
-  /// The elite custom instruction input. Type anything or tap the mic
-  /// to speak the instruction. Never navigates away from the sheet.
+  /// Elite voice-only instruction button.
+  /// Mic icon on the left, bold statement on the right.
+  /// Tap → closes sheet → opens recording screen → transcribes → runs
+  /// old combined-prompt customRefine (master-prompt wrapper).
   Widget _buildInstructionInput() {
-    final isRecording = _isRecordingInstruction;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isRecording
-              ? const Color(0xFFEF4444).withOpacity(0.6)
-              : Colors.white.withOpacity(0.08),
-          width: 1,
+    return GestureDetector(
+      onTap: _handleInstructionsTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF7C6AE8).withOpacity(0.18),
+              const Color(0xFF7C6AE8).withOpacity(0.08),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFF7C6AE8).withOpacity(0.4),
+            width: 1,
+          ),
         ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Text field
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 16, right: 4),
-              child: TextField(
-                controller: _instructionController,
-                enabled: !isRecording && !_loading,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
-                textInputAction: TextInputAction.send,
-                onSubmitted: _handleCustomInstruction,
-                decoration: InputDecoration(
-                  hintText: isRecording
-                      ? 'Listening...'
-                      : 'Tell AI what you want...',
-                  hintStyle: TextStyle(
-                    color: isRecording
-                        ? const Color(0xFFEF4444).withOpacity(0.9)
-                        : Colors.white.withOpacity(0.35),
-                    fontSize: 15,
+        child: Row(
+          children: [
+            // Mic pill on the left
+            Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Color(0xFF7C6AE8),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.mic_rounded, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 14),
+            // Impactful statement on the right
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Give AI Instructions',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
                   ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-          ),
-
-          // Mic button — red with stop when recording, purple with mic otherwise
-          Padding(
-            padding: const EdgeInsets.all(6),
-            child: GestureDetector(
-              onTap: _toggleInstructionRecording,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: isRecording
-                      ? const Color(0xFFEF4444)
-                      : const Color(0xFF7C6AE8),
-                  shape: BoxShape.circle,
-                  boxShadow: isRecording
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFFEF4444).withOpacity(0.4),
-                            blurRadius: 12,
-                            spreadRadius: 2,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Icon(
-                  isRecording ? Icons.stop_rounded : Icons.mic_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
-
-          // Send button — only shows when user has typed something
-          if (_instructionController.text.trim().isNotEmpty && !isRecording)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: GestureDetector(
-                onTap: () => _handleCustomInstruction(_instructionController.text),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF34C759),
-                    shape: BoxShape.circle,
+                  const SizedBox(height: 2),
+                  Text(
+                    'Speak what you want changed',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.55),
+                      fontSize: 12,
+                    ),
                   ),
-                  child: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
-                ),
+                ],
               ),
             ),
-        ],
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.white.withOpacity(0.35),
+              size: 14,
+            ),
+          ],
+        ),
       ),
     );
   }
