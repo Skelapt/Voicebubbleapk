@@ -123,26 +123,23 @@ class _PaywallScreenState extends State<PaywallScreen> {
     // phase. Otherwise a yearly plan with a 7-day free trial shows as $0.00.
     final monthlyInfo = monthly != null ? _subscriptionService.regularPriceOf(monthly) : null;
     final yearlyInfo = yearly != null ? _subscriptionService.regularPriceOf(yearly) : null;
+
+    // Big price on each card = the actual formatted price from Play Store.
     final monthlyPrice = monthlyInfo?.formatted ?? "\$4.99";
     final yearlyPrice = yearlyInfo?.formatted ?? "\$49.99";
 
-    // Calculate weekly price and savings. Use the yearly product's actual
-    // currency symbol (£, $, €, ...) so we don't mix currencies on the card.
-    String weeklyPrice = "\$0.96";
-    String savingsText = "SAVE 60%";
-    if (yearly != null && yearlyInfo != null && yearlyInfo.raw > 0) {
-      final weekly = yearlyInfo.raw / 52;
-      final symbol = _subscriptionService.currencySymbolOf(yearly);
-      weeklyPrice = "$symbol${weekly.toStringAsFixed(2)}";
-    }
-    if (monthlyInfo != null && yearlyInfo != null) {
-      final monthlyRaw = monthlyInfo.raw;
-      final yearlyRaw = yearlyInfo.raw;
-      if (monthlyRaw > 0) {
-        final yearlyEquivalent = monthlyRaw * 12;
-        final savings = ((yearlyEquivalent - yearlyRaw) / yearlyEquivalent * 100).round();
-        savingsText = "SAVE $savings%";
-      }
+    // Subtitle under each card: price-per-month. For monthly, this is just
+    // the monthly price again (matches the reference design where both cards
+    // share the same visual structure). For yearly, it's yearly / 12 rendered
+    // in the product's own currency.
+    final monthlySubtitle = monthlyInfo != null
+        ? '${monthlyInfo.formatted}/month'
+        : '$monthlyPrice/month';
+    String yearlySubtitle = '$yearlyPrice/year';
+    if (yearlyInfo != null && yearlyInfo.raw > 0) {
+      final perMonth = yearlyInfo.raw / 12;
+      yearlySubtitle =
+          '${yearlyInfo.currencySymbol}${perMonth.toStringAsFixed(2)}/month';
     }
 
     return Scaffold(
@@ -214,82 +211,37 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
               const SizedBox(height: 28),
 
-              // Two price cards — IDENTICAL SIZE
-              Row(
-                children: [
-                  // Monthly
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isYearlySelected = false),
-                      child: Container(
-                        height: 100,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: !_isYearlySelected
-                              ? const Color(0xFF7C6AE8).withOpacity(0.12)
-                              : Colors.white.withOpacity(0.03),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: !_isYearlySelected
-                                ? const Color(0xFF7C6AE8)
-                                : Colors.white.withOpacity(0.08),
-                            width: !_isYearlySelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Monthly', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 6),
-                            Text(monthlyPrice, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
-                            const SizedBox(height: 2),
-                            Text('/month', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.35))),
-                          ],
+              // Extra top-padding so the floating "7-DAY TRIAL" badge on the
+              // yearly card doesn't clip into the feature bullets above.
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _priceCard(
+                          selected: !_isYearlySelected,
+                          onTap: () => setState(() => _isYearlySelected = false),
+                          label: 'Monthly',
+                          price: monthlyPrice,
+                          subtitle: monthlySubtitle,
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Yearly — with savings badge
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isYearlySelected = true),
-                      child: Container(
-                        height: 100,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: _isYearlySelected
-                              ? const Color(0xFF7C6AE8).withOpacity(0.12)
-                              : Colors.white.withOpacity(0.03),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: _isYearlySelected
-                                ? const Color(0xFF7C6AE8)
-                                : Colors.white.withOpacity(0.08),
-                            width: _isYearlySelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(savingsText, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF10B981))),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(weeklyPrice, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
-                            const SizedBox(height: 2),
-                            Text('/week ($yearlyPrice/yr)', style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.35))),
-                          ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _priceCard(
+                          selected: _isYearlySelected,
+                          onTap: () => setState(() => _isYearlySelected = true),
+                          label: 'Yearly',
+                          price: yearlyPrice,
+                          subtitle: yearlySubtitle,
+                          badge: '7-DAY TRIAL',
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
 
               const SizedBox(height: 20),
@@ -350,6 +302,110 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Price card. Both monthly and yearly use the same structure so users can
+  /// compare at a glance. Passing a non-null [badge] renders a pill floating
+  /// over the top edge of the card (used for "7-DAY TRIAL" on yearly).
+  Widget _priceCard({
+    required bool selected,
+    required VoidCallback onTap,
+    required String label,
+    required String price,
+    required String subtitle,
+    String? badge,
+  }) {
+    final card = GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF7C6AE8).withOpacity(0.12)
+              : Colors.white.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF7C6AE8)
+                : Colors.white.withOpacity(0.08),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white.withOpacity(0.6),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                price,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withOpacity(0.4),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (badge == null) return card;
+
+    // Floating green "7-DAY TRIAL" pill overlapping the top edge of the card.
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: [
+        Padding(padding: const EdgeInsets.only(top: 10), child: card),
+        Positioned(
+          top: -2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF34C759),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF34C759).withOpacity(0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              badge,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

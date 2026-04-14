@@ -43,8 +43,10 @@ class SubscriptionService {
   /// pricing phases. The plugin's default [ProductDetails.price] /
   /// [ProductDetails.rawPrice] picks the first phase (the £0.00 free trial),
   /// which makes the paywall display "$0.00". This helper walks the offer's
-  /// pricing phases and returns the first non-zero (regular) phase.
-  ({String formatted, double raw}) regularPriceOf(ProductDetails product) {
+  /// pricing phases and returns the first non-zero (regular) phase, along
+  /// with the currency symbol parsed from that phase's formatted price so
+  /// callers can render derived values (e.g. per-week) in the right currency.
+  ({String formatted, double raw, String currencySymbol}) regularPriceOf(ProductDetails product) {
     if (product is GooglePlayProductDetails) {
       final offers = product.productDetails.subscriptionOfferDetails ?? const [];
 
@@ -61,6 +63,7 @@ class SubscriptionService {
             return (
               formatted: phase.formattedPrice,
               raw: phase.priceAmountMicros / 1000000.0,
+              currencySymbol: _symbolFromFormatted(phase.formattedPrice),
             );
           }
         }
@@ -69,23 +72,21 @@ class SubscriptionService {
 
     // iOS / fallback: StoreKit's [price] is the regular recurring price;
     // introductory offers are reported separately, so the default is correct.
-    return (formatted: product.price, raw: product.rawPrice);
+    return (
+      formatted: product.price,
+      raw: product.rawPrice,
+      currencySymbol: _symbolFromFormatted(product.price),
+    );
   }
 
-  /// Returns the locale-correct currency symbol (e.g. "£", "$", "€") for a
-  /// product, so we can render computed prices (like the per-week number
-  /// derived from the yearly raw price) in the user's actual currency instead
-  /// of hard-coding "$".
-  String currencySymbolOf(ProductDetails product) {
-    if (product is GooglePlayProductDetails) {
-      return product.currencySymbol;
-    }
-    // Fallback: pull the non-numeric prefix off the formatted price, e.g.
-    // "£6.99" -> "£", "US$4.99" -> "US$", "4,99 €" -> "€" (suffix case handled
-    // below).
-    final prefix = RegExp(r'^[^\d\-\s]+').firstMatch(product.price);
+  /// Extracts a currency symbol from a formatted price string, e.g.
+  /// "£53.99" -> "£", "$4.99" -> "$", "53,99 €" -> "€". Deliberately does
+  /// NOT use [GooglePlayProductDetails.currencySymbol], which reflects the
+  /// default (free-trial) phase and can return "Free" for subs with trials.
+  String _symbolFromFormatted(String formatted) {
+    final prefix = RegExp(r'^[^\d\s\-]+').firstMatch(formatted);
     if (prefix != null) return prefix.group(0)!.trim();
-    final suffix = RegExp(r'[^\d\-\s]+$').firstMatch(product.price);
+    final suffix = RegExp(r'[^\d\s\-,.]+$').firstMatch(formatted);
     if (suffix != null) return suffix.group(0)!.trim();
     return '\$';
   }
