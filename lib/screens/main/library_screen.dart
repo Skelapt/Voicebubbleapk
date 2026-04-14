@@ -49,6 +49,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
   int _viewMode = 0;
   String _searchQuery = '';
   String? _selectedTagId;
+  bool _showSearch = false;
 
   // Overlay state (from HomeScreen)
   bool _overlayEnabled = false;
@@ -660,32 +661,63 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                       ),
                       const SizedBox(height: 14),
 
-                      // Search + Tags — all on one line
+                      // Search bar (expandable) + action icons + scrollable tags
+                      if (_showSearch) ...[
+                        Container(
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: surfaceColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  autofocus: true,
+                                  onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                                  style: TextStyle(color: textColor, fontSize: 14),
+                                  decoration: InputDecoration(
+                                    hintText: 'Search library...',
+                                    hintStyle: TextStyle(color: secondaryTextColor, fontSize: 14),
+                                    prefixIcon: Icon(Icons.search, color: secondaryTextColor, size: 20),
+                                    prefixIconConstraints: const BoxConstraints(minWidth: 40),
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => setState(() { _showSearch = false; _searchQuery = ''; }),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: Icon(Icons.close, color: secondaryTextColor, size: 20),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      // Icons row + scrollable tags
                       SizedBox(
-                        height: 38,
+                        height: 36,
                         child: Row(
                           children: [
-                            // Search icon button
-                            GestureDetector(
-                              onTap: () {
-                                // Toggle search field visibility
-                                setState(() {
-                                  if (_searchQuery.isNotEmpty) {
-                                    _searchQuery = '';
-                                  }
-                                });
-                              },
-                              child: Container(
-                                width: 38,
-                                height: 38,
-                                decoration: BoxDecoration(
-                                  color: surfaceColor,
-                                  borderRadius: BorderRadius.circular(10),
+                            // Search icon
+                            if (!_showSearch)
+                              GestureDetector(
+                                onTap: () => setState(() => _showSearch = true),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: surfaceColor,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(Icons.search, color: secondaryTextColor, size: 18),
                                 ),
-                                child: Icon(Icons.search, color: secondaryTextColor, size: 18),
                               ),
-                            ),
-                            const SizedBox(width: 8),
+                            if (!_showSearch) const SizedBox(width: 6),
                             // Tag management icon
                             if (_viewMode == 0)
                               GestureDetector(
@@ -700,8 +732,8 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                                   }
                                 },
                                 child: Container(
-                                  width: 38,
-                                  height: 38,
+                                  width: 36,
+                                  height: 36,
                                   decoration: BoxDecoration(
                                     color: surfaceColor,
                                     borderRadius: BorderRadius.circular(10),
@@ -709,7 +741,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                                   child: Icon(Icons.label_outline, color: secondaryTextColor, size: 18),
                                 ),
                               ),
-                            if (_viewMode == 0) const SizedBox(width: 8),
+                            if (_viewMode == 0) const SizedBox(width: 6),
                             // Batch operations icon
                             if (_viewMode == 0)
                               GestureDetector(
@@ -727,8 +759,8 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                                   );
                                 },
                                 child: Container(
-                                  width: 38,
-                                  height: 38,
+                                  width: 36,
+                                  height: 36,
                                   decoration: BoxDecoration(
                                     color: surfaceColor,
                                     borderRadius: BorderRadius.circular(10),
@@ -737,7 +769,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                                 ),
                               ),
                             if (_viewMode == 0) const SizedBox(width: 8),
-                            // Scrollable tag chips (fills remaining space)
+                            // Scrollable tag chips
                             if (_viewMode == 0)
                               Expanded(
                                 child: TagFilterChips(
@@ -786,9 +818,9 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                             physics: const NeverScrollableScrollPhysics(),
                             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
-                              childAspectRatio: 0.75,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.7,
+                              crossAxisSpacing: 10,
+                              mainAxisSpacing: 10,
                             ),
                             itemCount: recordings.length,
                             itemBuilder: (context, index) {
@@ -864,12 +896,37 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.mic, size: 30, color: Color(0xFF1A1A2E)),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(22),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Image.asset(
+                                'assets/app_logo.png',
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    // RIGHT FAB: MultiOptionFab (without voice option)
+                    // RIGHT FAB: Search toggle
                     Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: FloatingActionButton(
+                        heroTag: 'search_fab',
+                        onPressed: () => setState(() => _showSearch = !_showSearch),
+                        backgroundColor: surfaceColor,
+                        elevation: 2,
+                        child: Icon(
+                          _showSearch ? Icons.close : Icons.search,
+                          color: secondaryTextColor,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                    // HIDDEN: Keep MultiOptionFab logic but don't show it
+                    if (false) Positioned(
                       right: 0,
                       bottom: 0,
                       child: MultiOptionFab(
@@ -1147,106 +1204,91 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
       child: Stack(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: surfaceColor,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withOpacity(0.05),
                 width: 1,
               ),
-              // Show background image if selected
               image: item.background != null && !_isBackgroundPaper(item.background!)
                   ? DecorationImage(
                       image: AssetImage(_getBackgroundAssetPath(item.background!)),
                       fit: BoxFit.cover,
-                      opacity: 0.3, // 30% opacity - brighter than before!
-                      // NO ColorFilter - let image show naturally
+                      opacity: 0.25,
                     )
                   : null,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header row with content type indicator and date - BOTH LEFT ALIGNED
+                // Date + content type badge
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    // Content type indicator
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: contentTypeColor.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            contentTypeIcon,
-                            size: 12,
-                            color: contentTypeColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            item.contentType.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: contentTypeColor,
+                    if (item.contentType == 'voice')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: contentTypeColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(contentTypeIcon, size: 10, color: contentTypeColor),
+                            const SizedBox(width: 3),
+                            Text(
+                              item.contentType.toUpperCase(),
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: contentTypeColor),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),  // Small gap instead of Spacer
-                    // Date/time - now LEFT aligned next to badge
+                    if (item.contentType == 'voice') const SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         item.formattedDate,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: secondaryTextColor,
-                        ),
+                        style: TextStyle(fontSize: 11, color: secondaryTextColor),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
-                // Title (custom title if available, otherwise first line of content)
+                // Title — bold, prominent
                 Text(
                   item.customTitle?.isNotEmpty == true
                       ? item.customTitle!
                       : item.finalText.split('\n').first,
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: textColor,
+                    height: 1.25,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
 
-                // Preview text (show content, but skip first line if we used it as title and no custom title)
-                Text(
-                  item.customTitle?.isNotEmpty == true
-                      ? item.finalText
-                      : _getPreviewText(item.finalText),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: secondaryTextColor,
-                    height: 1.4,
+                // Preview text
+                Expanded(
+                  child: Text(
+                    item.customTitle?.isNotEmpty == true
+                        ? item.finalText
+                        : _getPreviewText(item.finalText),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: secondaryTextColor.withOpacity(0.8),
+                      height: 1.4,
+                    ),
+                    overflow: TextOverflow.fade,
                   ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
                 ),
 
-                const Spacer(),
-
-                // Tags at bottom as colored text
+                // Tags at bottom
                 Consumer<AppStateProvider>(
                   builder: (context, appState, _) {
                     final tags = appState.tags;
@@ -1256,17 +1298,20 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                         .cast<Tag>()
                         .toList();
 
-                    if (itemTags.isEmpty) return const SizedBox(height: 8);
+                    if (itemTags.isEmpty) return const SizedBox.shrink();
 
-                    return Text(
-                      itemTags.map((tag) => tag.name).join(', '),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(itemTags.first.color),
-                        fontWeight: FontWeight.w600,
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        itemTags.map((tag) => tag.name).join(', '),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(itemTags.first.color),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     );
                   },
                 ),
