@@ -615,62 +615,62 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                               );
                             },
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           // Paywall icon
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: surfaceColor,
-                              borderRadius: BorderRadius.circular(38),
-                            ),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (context) => PaywallScreen(
-                                    onSubscribe: () {},
-                                    onRestore: () {},
-                                    onClose: () => Navigator.pop(context),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.workspace_premium, color: Color(0xFFFFD700), size: 20),
+                          GestureDetector(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => PaywallScreen(
+                                  onSubscribe: () {},
+                                  onRestore: () {},
+                                  onClose: () => Navigator.pop(context),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: surfaceColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.workspace_premium, color: Color(0xFFFFD700), size: 18),
                             ),
                           ),
                           const SizedBox(width: 6),
                           // Settings icon
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: surfaceColor,
-                              borderRadius: BorderRadius.circular(38),
+                          GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const SettingsScreen()),
                             ),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: surfaceColor,
+                                shape: BoxShape.circle,
                               ),
-                              icon: Icon(Icons.settings, color: textColor, size: 20),
+                              child: Icon(Icons.settings, color: secondaryTextColor, size: 18),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
-                      // Search Bar + Tag Button (no subtitle)
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: surfaceColor,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                      // Search Bar — clean, slim, with inline icons
+                      Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: surfaceColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            // Search field
+                            Expanded(
                               child: TextField(
                                 onChanged: (value) {
                                   setState(() => _searchQuery = value.toLowerCase());
@@ -681,78 +681,66 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                                     );
                                   }
                                 },
-                                style: TextStyle(color: textColor, fontSize: 16),
+                                style: TextStyle(color: textColor, fontSize: 14),
                                 decoration: InputDecoration(
                                   hintText: 'Search library...',
-                                  hintStyle: TextStyle(color: secondaryTextColor),
-                                  prefixIcon: Icon(Icons.search, color: secondaryTextColor),
+                                  hintStyle: TextStyle(color: secondaryTextColor, fontSize: 14),
+                                  prefixIcon: Icon(Icons.search, color: secondaryTextColor, size: 20),
+                                  prefixIconConstraints: const BoxConstraints(minWidth: 40),
                                   border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                                 ),
                               ),
                             ),
-                          ),
-                          if (_viewMode == 0) ...[
-                            const SizedBox(width: 12),
-                            GestureDetector(
-                              onTap: () async {
-                                await showDialog(
-                                  context: context,
-                                  builder: (context) => const TagManagementDialog(),
-                                );
-                                if (mounted) {
-                                  await appState.refreshTags();
-                                  setState(() {}); // Force rebuild
-                                }
-                              },
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: _selectedTagId != null ? primaryColor.withOpacity(0.2) : surfaceColor,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: _selectedTagId != null ? Border.all(color: primaryColor, width: 1) : null,
-                                ),
-                                child: Icon(
-                                  Icons.label,
-                                  color: _selectedTagId != null ? primaryColor : secondaryTextColor,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                            // ✨ BATCH OPERATIONS BUTTON ✨
-                            const SizedBox(width: 12),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => BatchOperationsScreen(
-                                      allNotes: recordings,
-                                      onComplete: (_) {
-                                        if (mounted) setState(() {});
-                                      },
-                                    ),
+                            if (_viewMode == 0) ...[
+                              // Tag management — slim icon
+                              GestureDetector(
+                                onTap: () async {
+                                  await showDialog(
+                                    context: context,
+                                    builder: (context) => const TagManagementDialog(),
+                                  );
+                                  if (mounted) {
+                                    await appState.refreshTags();
+                                    setState(() {});
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: Icon(
+                                    Icons.label_outline,
+                                    color: _selectedTagId != null ? primaryColor : secondaryTextColor,
+                                    size: 20,
                                   ),
-                                );
-                              },
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: surfaceColor,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.checklist,
-                                  color: secondaryTextColor,
-                                  size: 20,
                                 ),
                               ),
-                            ),
-                            // ✨ END BATCH OPERATIONS BUTTON ✨
+                              // Batch operations — slim icon
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => BatchOperationsScreen(
+                                        allNotes: recordings,
+                                        onComplete: (_) {
+                                          if (mounted) setState(() {});
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 12),
+                                  child: Icon(
+                                    Icons.checklist,
+                                    color: secondaryTextColor,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                       const SizedBox(height: 12),
 

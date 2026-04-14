@@ -12,8 +12,11 @@ import '../../services/feature_gate.dart';
 import '../../services/usage_service.dart';
 import '../../services/subscription_service.dart';
 import '../../widgets/usage_display_widget.dart';
+import '../../models/recording_item.dart';
+import 'package:uuid/uuid.dart';
 import 'preset_selection_screen.dart';
 import 'result_screen.dart';
+import 'recording_detail_screen.dart';
 
 class RecordingScreen extends StatefulWidget {
   final bool isInstructionsMode;
@@ -310,14 +313,72 @@ class _RecordingScreenState extends State<RecordingScreen>
           return;
         }
         
-        // Navigate directly to preset selection (skip showing transcription)
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const PresetSelectionScreen(fromRecording: true),
-            ),
+        // Check if we're continuing from an existing item
+        final appState = context.read<AppStateProvider>();
+        final continueContext = appState.continueContext;
+
+        if (continueContext != null && continueContext.singleItemId != null) {
+          // CONTINUE FLOW: Append raw transcript to the original item
+          final originalItem = appState.allRecordingItems.firstWhere(
+            (item) => item.id == continueContext.singleItemId,
+            orElse: () => appState.allRecordingItems.first,
           );
+
+          if (originalItem.id == continueContext.singleItemId) {
+            final appendedText = '${originalItem.finalText}\n\n$transcription';
+            final updatedItem = originalItem.copyWith(
+              finalText: appendedText,
+              formattedContent: '', // Clear formatted so editor reloads from plain text
+              editHistory: [...originalItem.editHistory, transcription],
+            );
+            await appState.updateRecording(updatedItem);
+            debugPrint('✅ Appended transcript to original: ${continueContext.singleItemId}');
+          }
+
+          appState.clearContinueContext();
+
+          // Go back to editor (it will rebuild with fresh content)
+          if (mounted) {
+            Navigator.pop(context);
+          }
+        } else {
+          // NEW RECORDING: Save raw transcript as new item, go straight to editor
+          final itemId = const Uuid().v4();
+          final item = RecordingItem(
+            id: itemId,
+            rawTranscript: transcription,
+            finalText: transcription,
+            presetUsed: 'Raw Voice',
+            outcomes: [],
+            projectId: null,
+            createdAt: DateTime.now(),
+            editHistory: [],
+            presetId: '',
+            contentType: 'voice',
+          );
+
+          await appState.saveRecording(item);
+
+          AnalyticsService().logCustomEvent(
+            eventName: 'document_created',
+            parameters: {
+              'document_type': 'voice',
+              'source': 'recording',
+              'creation_method': 'voice_direct',
+            },
+          );
+
+          debugPrint('✅ Saved raw transcript as new item: $itemId');
+
+          // Navigate to editor for this new item
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RecordingDetailScreen(recordingId: itemId),
+              ),
+            );
+          }
         }
       } else {
         throw Exception('No audio recorded');

@@ -28,15 +28,15 @@ class TagChip extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: isLarge ? 14 : 10,
-          vertical: isLarge ? 10 : 6,
+          horizontal: isLarge ? 12 : 10,
+          vertical: isLarge ? 7 : 6,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? color : color.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(isLarge ? 20 : 14),
+          color: isSelected ? color : color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(isLarge ? 18 : 14),
           border: Border.all(
-            color: color.withOpacity(isSelected ? 1.0 : 0.4),
-            width: isSelected ? 2 : 1,
+            color: color.withOpacity(isSelected ? 0.8 : 0.25),
+            width: 1,
           ),
         ),
         child: Row(
@@ -56,8 +56,8 @@ class TagChip extends StatelessWidget {
             Text(
               tag.name,
               style: TextStyle(
-                fontSize: isLarge ? 14 : 11,
-                fontWeight: isLarge ? FontWeight.w600 : FontWeight.w500,
+                fontSize: isLarge ? 13 : 11,
+                fontWeight: FontWeight.w500,
                 color: isSelected ? Colors.white : color,
               ),
               maxLines: 1,

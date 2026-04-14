@@ -11,9 +11,12 @@ import 'package:uuid/uuid.dart';
 import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart';
 import '../services/refinement_service.dart';
+import '../services/ai_service.dart';
 import '../services/feature_gate.dart';
 import '../models/outcome_type.dart';
+import '../models/preset.dart';
 import '../constants/background_assets.dart';
+import '../constants/presets.dart';
 import './outcome_chip.dart';
 import './background_picker.dart';
 
@@ -612,31 +615,41 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
   }
 
   Future<void> _showAIMenu() async {
-    if (_selectedText.isEmpty) return;
-    final canUse = await FeatureGate.canUseHighlightAI(context);
-    if (!canUse) return;
+    // Use selected text if available, otherwise use full document
+    final textToRewrite = _hasSelection
+        ? _selectedText
+        : _controller.document.toPlainText().trim();
+
+    if (textToRewrite.isEmpty) return;
+
     HapticFeedback.mediumImpact();
 
     if (!mounted) return;
-    showDialog(
+
+    // Show full AI presets bottom sheet (Letterly-style Rewrite)
+    showModalBottomSheet(
       context: context,
-      barrierColor: Colors.transparent, // No dark overlay
-      builder: (ctx) => Align(
-        alignment: Alignment.bottomRight,
-        child: Container(
-          margin: const EdgeInsets.only(right: 16, bottom: 120),
-          width: 140, // SMALL COMPACT WIDTH
-          child: Material(
-            color: Colors.transparent,
-            child: _AIMenuSheet(
-              selectedText: _selectedText,
-              onResult: (newText) {
-                Navigator.pop(ctx);
-                _replaceSelection(newText);
-              },
-            ),
-          ),
-        ),
+      backgroundColor: const Color(0xFF0A0A0A),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _RewritePresetSheet(
+        textToRewrite: textToRewrite,
+        onResult: (newText) {
+          Navigator.pop(ctx);
+          if (_hasSelection) {
+            _replaceSelection(newText);
+          } else {
+            // Replace full document
+            final length = _controller.document.length;
+            _controller.replaceText(0, length - 1, newText, null);
+            setState(() {
+              _hasSelection = false;
+              _selectedText = '';
+            });
+          }
+        },
       ),
     );
   }
@@ -1077,6 +1090,67 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
     );
   }
 
+  void _showEditorOptionsMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.add_circle_outline, color: Color(0xFF3B82F6)),
+                title: const Text('Add Content', style: TextStyle(color: Colors.white)),
+                subtitle: Text('Image, voice note, checkbox', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAddContentMenu();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.palette_outlined, color: Color(0xFF8B5CF6)),
+                title: const Text('Change Background', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showBackgroundPicker();
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  _isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  color: _isPinned ? const Color(0xFFF59E0B) : Colors.white70,
+                ),
+                title: Text(
+                  _isPinned ? 'Unpin Note' : 'Pin Note',
+                  style: const TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _togglePin();
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showBackgroundPicker() {
     showModalBottomSheet(
       context: context,
@@ -1195,44 +1269,6 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
           children: [
             Column(
               children: [
-                // Quill formatting toolbar (Row 1) - AT TOP for maximum space
-                if (!widget.readOnly)
-                  Container(
-                    color: surfaceColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: quill.QuillSimpleToolbar(
-                      configurations: quill.QuillSimpleToolbarConfigurations(
-                        controller: _controller,
-                        multiRowsDisplay: false,
-                        // Enable ALL toolbar options!
-                        showBoldButton: true,
-                        showItalicButton: true,
-                        showUnderLineButton: true,
-                        showStrikeThrough: true,
-                        showColorButton: true,
-                        showBackgroundColorButton: true,
-                        showListNumbers: true,
-                        showListBullets: true,
-                        showListCheck: true,
-                        showCodeBlock: true,
-                        showQuote: true,
-                        showIndent: true,
-                        showLink: true,
-                        showUndo: true,
-                        showRedo: true,
-                        showDirection: true,
-                        showSearchButton: true,
-                        showSubscript: true,
-                        showSuperscript: true,
-                        showSmallButton: true,
-                        showInlineCode: true,
-                        showClearFormat: true,
-                        showHeaderStyle: true,
-                        showAlignmentButtons: true,
-                      ),
-                    ),
-                  ),
-                
                 // Outcome chips section (for outcomes tab) - FIXED
                 if (widget.showOutcomeChips)
                   Container(
@@ -1390,8 +1426,8 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                       // Content layer (scrollable)
                       SingleChildScrollView(
                         child: Container(
-                          // BACK TO ORIGINAL GREY - NO BLACK BACKGROUND BULLSHIT
-                          color: widget.backgroundId == null ? const Color(0xFF1E1E1E) : Colors.transparent,
+                          // Clean dark background - matches app
+                          color: widget.backgroundId == null ? const Color(0xFF000000) : Colors.transparent,
                           padding: const EdgeInsets.all(16),
                           constraints: BoxConstraints(
                             minHeight: MediaQuery.of(context).size.height - 100,
@@ -1502,10 +1538,10 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                                   focusNode: _focusNode,
                                   configurations: quill.QuillEditorConfigurations(
                                     controller: _controller,
-                                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 400),
+                                    padding: const EdgeInsets.fromLTRB(4, 8, 4, 400),
                                     autoFocus: !widget.readOnly,
                                     expands: false,
-                                    placeholder: 'Start typing...',
+                                    placeholder: 'Start writing...',
                                     readOnly: widget.readOnly,
                                     scrollPhysics: const ClampingScrollPhysics(),
                                     embedBuilders: [
@@ -1513,13 +1549,26 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                                       CustomAudioEmbedBuilder(),
                                     ],
                                     customStyles: quill.DefaultStyles(
+                                      h1: quill.DefaultTextBlockStyle(
+                                        TextStyle(
+                                          color: widget.backgroundId != null && BackgroundAssets.findById(widget.backgroundId!)?.isPaper == true
+                                              ? Colors.black
+                                              : Colors.white,
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.bold,
+                                          height: 1.3,
+                                        ),
+                                        const quill.VerticalSpacing(16, 8),
+                                        const quill.VerticalSpacing(0, 0),
+                                        null,
+                                      ),
                                       paragraph: quill.DefaultTextBlockStyle(
                                         TextStyle(
                                           color: widget.backgroundId != null && BackgroundAssets.findById(widget.backgroundId!)?.isPaper == true
-                                              ? Colors.black // Black text on paper
-                                              : Colors.white, // White text on dark/images
-                                          fontSize: 16,
-                                          height: 1.6,
+                                              ? Colors.black
+                                              : Colors.white.withOpacity(0.9),
+                                          fontSize: 17,
+                                          height: 1.7,
                                         ),
                                         const quill.VerticalSpacing(0, 0),
                                         const quill.VerticalSpacing(0, 0),
@@ -1528,9 +1577,9 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                                       placeHolder: quill.DefaultTextBlockStyle(
                                         TextStyle(
                                           color: widget.backgroundId != null && BackgroundAssets.findById(widget.backgroundId!)?.isPaper == true
-                                              ? Colors.black.withOpacity(0.3) // Black placeholder on paper
-                                              : Colors.white.withOpacity(0.3), // White placeholder on dark/images
-                                          fontSize: 16,
+                                              ? Colors.black.withOpacity(0.3)
+                                              : Colors.white.withOpacity(0.25),
+                                          fontSize: 17,
                                         ),
                                         const quill.VerticalSpacing(0, 0),
                                         const quill.VerticalSpacing(0, 0),
@@ -1548,73 +1597,108 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                   ),
                 ),
 
-                // Status bar with action buttons at bottom left
+                // ═══════════════════════════════════════════
+                // LETTERLY-STYLE BOTTOM BAR
+                // ═══════════════════════════════════════════
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: surfaceColor,
-                    border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+                    color: const Color(0xFF0A0A0A),
+                    border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
                   ),
-                  child: Row(
-                    children: [
-                      // Action buttons at BOTTOM LEFT (if showTopToolbar)
-                      if (widget.showTopToolbar && !widget.readOnly) ...[
-                        // Pin button
-                        IconButton(
-                          icon: Icon(
-                            _isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                            color: _isPinned ? const Color(0xFFF59E0B) : Colors.white70,
-                            size: 20,
+                  child: SafeArea(
+                    top: false,
+                    child: Row(
+                      children: [
+                        // Pin button (left)
+                        if (widget.showTopToolbar && !widget.readOnly)
+                          _BottomBarIcon(
+                            icon: _isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                            color: _isPinned ? const Color(0xFFF59E0B) : Colors.white54,
+                            onTap: _togglePin,
                           ),
-                          onPressed: _togglePin,
-                          tooltip: 'Pin',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                        const SizedBox(width: 12),
-                        // Single "+" button to add content
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: Colors.white70, size: 20),
-                          onPressed: _showAddContentMenu,
-                          tooltip: 'Add content',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                        const SizedBox(width: 12),
-                        // Background button
-                        IconButton(
-                          icon: const Icon(Icons.palette_outlined, color: Colors.white70, size: 20),
-                          onPressed: _showBackgroundPicker,
-                          tooltip: 'Change background',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                        const SizedBox(width: 16),
-                      ],
+                        if (widget.showTopToolbar && !widget.readOnly)
+                          const SizedBox(width: 8),
 
-                      // Word count - MOVED HERE
-                      Text(
-                        '$_wordCount • $_characterCount',
-                        style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
-                      ),
-                      const Spacer(),
-                      // FAB clearance - prevent overlap with mic button
-                      const SizedBox(width: 60),
-                    ],
+                        // Tags / hashtag button
+                        if (widget.showTopToolbar && !widget.readOnly)
+                          _BottomBarIcon(
+                            icon: Icons.tag,
+                            color: Colors.white54,
+                            onTap: _showAddContentMenu,
+                          ),
+
+                        const Spacer(),
+
+                        // ✨ REWRITE BUTTON (center, hero) ✨
+                        if (!widget.readOnly)
+                          GestureDetector(
+                            onTap: _showAIMenu,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFAF5F0),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.auto_awesome, size: 18, color: Colors.black87),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Rewrite',
+                                    style: TextStyle(
+                                      color: Colors.black87,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                        const Spacer(),
+
+                        // Share button
+                        if (widget.showTopToolbar && !widget.readOnly)
+                          _BottomBarIcon(
+                            icon: Icons.ios_share,
+                            color: Colors.white54,
+                            onTap: () {},  // Handled by recording_detail_screen menu
+                          ),
+                        if (widget.showTopToolbar && !widget.readOnly)
+                          const SizedBox(width: 8),
+
+                        // More options (add content, background, etc.)
+                        if (widget.showTopToolbar && !widget.readOnly)
+                          _BottomBarIcon(
+                            icon: Icons.more_horiz,
+                            color: Colors.white54,
+                            onTap: _showEditorOptionsMenu,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
             
-            // AI BUTTON - shows when text selected
+            // AI selection indicator - subtle hint when text selected
             if (_hasSelection)
               Positioned(
                 right: 16,
-                bottom: 60,
-                child: FloatingActionButton.small(
-                  onPressed: _showAIMenu,
-                  backgroundColor: const Color(0xFF8B5CF6),
-                  child: const Icon(Icons.auto_awesome, size: 18),
+                bottom: 70,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    'Tap Rewrite',
+                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
                 ),
               ),
           ],
@@ -1625,115 +1709,248 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
 }
 
 // ============================================================
-// AI MENU BOTTOM SHEET
+// BOTTOM BAR ICON WIDGET
 // ============================================================
 
-class _AIMenuSheet extends StatefulWidget {
-  final String selectedText;
-  final Function(String) onResult;
+class _BottomBarIcon extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
 
-  const _AIMenuSheet({required this.selectedText, required this.onResult});
+  const _BottomBarIcon({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
-  State<_AIMenuSheet> createState() => _AIMenuSheetState();
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+    );
+  }
 }
 
-class _AIMenuSheetState extends State<_AIMenuSheet> {
-  bool _loading = false;
-  String? _active;
-  final _service = RefinementService();
+// ============================================================
+// REWRITE PRESET SHEET — Full AI presets (Letterly-style)
+// ============================================================
 
-  Future<void> _run(String id) async {
+class _RewritePresetSheet extends StatefulWidget {
+  final String textToRewrite;
+  final Function(String) onResult;
+
+  const _RewritePresetSheet({required this.textToRewrite, required this.onResult});
+
+  @override
+  State<_RewritePresetSheet> createState() => _RewritePresetSheetState();
+}
+
+class _RewritePresetSheetState extends State<_RewritePresetSheet> {
+  bool _loading = false;
+  String? _activePresetId;
+
+  Future<void> _handlePresetTap(Preset preset) async {
     if (_loading) return;
-    setState(() { _loading = true; _active = id; });
+
+    // Check if user can use AI
+    final canUse = await FeatureGate.canUseHighlightAI(context);
+    if (!canUse) return;
+
+    setState(() {
+      _loading = true;
+      _activePresetId = preset.id;
+    });
 
     try {
-      String result;
-      switch (id) {
-        case 'magic': result = await _service.refineText(widget.selectedText, RefinementType.professional); break;
-        case 'shorten': result = await _service.shorten(widget.selectedText); break;
-        case 'expand': result = await _service.expand(widget.selectedText); break;
-        case 'pro': result = await _service.makeProfessional(widget.selectedText); break;
-        case 'casual': result = await _service.makeCasual(widget.selectedText); break;
-        case 'grammar': result = await _service.fixGrammar(widget.selectedText); break;
-        default: result = widget.selectedText;
-      }
+      final aiService = AIService();
+      final result = await aiService.rewriteText(
+        widget.textToRewrite,
+        preset,
+        'en', // TODO: use user's selected language
+      );
       widget.onResult(result);
     } catch (e) {
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Rewrite failed: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.5), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Compact button grid - 5 presets
-          _buildCompactButton('✨ Magic', 'magic'),
-          const SizedBox(height: 4),
-          _buildCompactButton('📏 Shorten', 'shorten'),
-          const SizedBox(height: 4),
-          _buildCompactButton('📝 Expand', 'expand'),
-          const SizedBox(height: 4),
-          _buildCompactButton('💼 Professional', 'pro'),
-          const SizedBox(height: 4),
-          _buildCompactButton('😊 Casual', 'casual'),
-        ],
-      ),
-    );
-  }
+    final categories = AppPresets.categories;
 
-  Widget _buildCompactButton(String label, String id) {
-    final isActive = _active == id;
-    return InkWell(
-      onTap: _loading ? null : () => _run(id),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF8B5CF6).withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.3,
+      maxChildSize: 0.85,
+      expand: false,
+      builder: (context, scrollController) {
+        return Column(
           children: [
-            if (_loading && isActive)
-              const SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFF8B5CF6),
-                ),
-              )
-            else
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+            // Handle bar
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
+            ),
+
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6), size: 20),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Rewrite with AI',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_loading)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF8B5CF6),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            const Divider(color: Color(0xFF1A1A1A), height: 1),
+
+            // Preset list
+            Expanded(
+              child: ListView.builder(
+                controller: scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                itemCount: categories.length,
+                itemBuilder: (context, categoryIndex) {
+                  final category = categories[categoryIndex];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Category label
+                      if (category.name.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                          child: Text(
+                            category.name.toUpperCase(),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.4),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+
+                      // Presets in this category
+                      ...category.presets.map((preset) {
+                        final isActive = _activePresetId == preset.id;
+                        return GestureDetector(
+                          onTap: _loading ? null : () => _handlePresetTap(preset),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? (preset.color ?? const Color(0xFF8B5CF6)).withOpacity(0.15)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                // Icon
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: (preset.color ?? const Color(0xFF8B5CF6)).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: isActive && _loading
+                                      ? Center(
+                                          child: SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: preset.color ?? const Color(0xFF8B5CF6),
+                                            ),
+                                          ),
+                                        )
+                                      : Icon(
+                                          preset.icon,
+                                          color: preset.color ?? const Color(0xFF8B5CF6),
+                                          size: 18,
+                                        ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Name + description
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        preset.name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        preset.description,
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.4),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  );
+                },
+              ),
+            ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
