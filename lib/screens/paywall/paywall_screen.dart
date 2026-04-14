@@ -24,7 +24,6 @@ class _PaywallScreenState extends State<PaywallScreen> {
   bool _isLoading = true;
   bool _isPurchasing = false;
   String? _errorMessage;
-  bool _isYearlySelected = false;
 
   @override
   void initState() {
@@ -49,9 +48,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
     });
 
     try {
-      final productId = _isYearlySelected
-          ? SubscriptionService.yearlyProductId
-          : SubscriptionService.monthlyProductId;
+      // Always use yearly — single plan, higher LTV
+      final productId = SubscriptionService.yearlyProductId;
 
       final success = await _subscriptionService.purchaseSubscription(productId);
 
@@ -69,7 +67,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         if (active) {
           AnalyticsService().logSubscriptionPurchased(
             productId: productId,
-            priceString: _isYearlySelected ? 'yearly' : 'monthly',
+            priceString: 'yearly',
           );
           widget.onSubscribe();
           widget.onClose();
@@ -117,20 +115,14 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final monthly = _subscriptionService.monthlyProduct;
     final yearly = _subscriptionService.yearlyProduct;
-    final monthlyPrice = monthly?.price ?? "\$4.99";
     final yearlyPrice = yearly?.price ?? "\$49.99";
 
-    String savingsText = "Save 17%";
-    if (monthly != null && yearly != null) {
-      final monthlyRaw = monthly.rawPrice;
-      final yearlyRaw = yearly.rawPrice;
-      if (monthlyRaw > 0) {
-        final yearlyEquivalent = monthlyRaw * 12;
-        final savings = ((yearlyEquivalent - yearlyRaw) / yearlyEquivalent * 100).round();
-        savingsText = "Save $savings%";
-      }
+    // Calculate weekly price
+    String weeklyPrice = "\$0.96";
+    if (yearly != null) {
+      final weekly = yearly.rawPrice / 52;
+      weeklyPrice = "\$${weekly.toStringAsFixed(2)}";
     }
 
     return Scaffold(
@@ -148,13 +140,13 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   child: GestureDetector(
                     onTap: widget.onClose,
                     child: Container(
-                      width: 36,
-                      height: 36,
+                      width: 34,
+                      height: 34,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
+                        color: Colors.white.withOpacity(0.06),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, color: Colors.white54, size: 20),
+                      child: const Icon(Icons.close, color: Colors.white38, size: 18),
                     ),
                   ),
                 ),
@@ -165,142 +157,152 @@ class _PaywallScreenState extends State<PaywallScreen> {
               // Logo
               Image.asset(
                 'assets/logo.png',
-                width: 80,
-                height: 80,
+                width: 72,
+                height: 72,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // Title
               const Text(
                 'Go Pro',
                 style: TextStyle(
-                  fontSize: 34,
+                  fontSize: 32,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
                   letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 'Unlock the full power of VoiceBubble',
                 style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 14,
+                  color: Colors.white.withOpacity(0.45),
                 ),
               ),
-              const SizedBox(height: 40),
 
-              // Two bullet points — clean and simple
-              _bulletPoint('Best-in-class transcription'),
               const SizedBox(height: 16),
-              _bulletPoint('Unlimited recordings and AI'),
 
-              const SizedBox(height: 48),
-
-              // Price toggle
+              // Social proof
               Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Monthly
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isYearlySelected = false),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        decoration: BoxDecoration(
-                          color: !_isYearlySelected
-                              ? const Color(0xFF7C6AE8).withOpacity(0.15)
-                              : Colors.white.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: !_isYearlySelected
-                                ? const Color(0xFF7C6AE8)
-                                : Colors.white.withOpacity(0.08),
-                            width: !_isYearlySelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Monthly',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.white.withOpacity(0.6),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              monthlyPrice,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                  ...List.generate(5, (i) => Icon(
+                    Icons.star_rounded,
+                    size: 18,
+                    color: i < 5 ? const Color(0xFFFFD700) : Colors.white24,
+                  )),
+                  const SizedBox(width: 8),
+                  Text(
+                    '4.8',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withOpacity(0.9),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Yearly
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isYearlySelected = true),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        decoration: BoxDecoration(
-                          color: _isYearlySelected
-                              ? const Color(0xFF7C6AE8).withOpacity(0.15)
-                              : Colors.white.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: _isYearlySelected
-                                ? const Color(0xFF7C6AE8)
-                                : Colors.white.withOpacity(0.08),
-                            width: _isYearlySelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              savingsText,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF7C6AE8),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              yearlyPrice,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                            Text(
-                              '/year',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.white.withOpacity(0.4),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '(2,400+ reviews)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.35),
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
+
+              // Feature bullets — 5 items
+              _feature(Icons.mic_none_rounded, 'Unlimited voice-to-text recordings'),
+              _feature(Icons.auto_awesome_rounded, 'AI-powered rewriting in any style'),
+              _feature(Icons.upload_file_rounded, 'Upload audio files for transcription'),
+              _feature(Icons.ios_share_rounded, 'Export to PDF, Word, Email'),
+              _feature(Icons.bolt_rounded, 'Priority processing — no waiting'),
+
+              const SizedBox(height: 32),
+
+              // Price card — yearly only, shown as weekly
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.08),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Weekly price
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              weeklyPrice,
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              '/week',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.4),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Billed $yearlyPrice/year',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.3),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    // Savings badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFF10B981).withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Text(
+                        'SAVE 60%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF10B981),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
 
               // Error
               if (_errorMessage != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: Text(
                     _errorMessage!,
                     style: const TextStyle(color: Colors.redAccent, fontSize: 12),
@@ -308,21 +310,28 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   ),
                 ),
 
-              // Subscribe button
+              // CTA Button — green, full width, "Start Free Trial"
               GestureDetector(
                 onTap: _isLoading || _isPurchasing ? null : _handlePurchase,
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 18),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF7C6AE8),
+                    color: const Color(0xFF34C759),
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF34C759).withOpacity(0.3),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
                   child: Center(
                     child: Text(
-                      _isPurchasing ? 'Processing...' : 'Subscribe',
+                      _isPurchasing ? 'Processing...' : 'Start Free Trial',
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
@@ -330,10 +339,19 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 6),
+              // Risk reducer
+              Text(
+                'Cancel anytime \u2022 No commitment',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withOpacity(0.3),
+                ),
+              ),
 
-              const SizedBox(height: 12),
+              const Spacer(flex: 3),
 
-              // Restore
+              // Restore + legal
               GestureDetector(
                 onTap: _isLoading || _isPurchasing ? null : _handleRestore,
                 child: Text(
@@ -341,20 +359,18 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withOpacity(0.35),
                   ),
                 ),
               ),
-
-              const Spacer(flex: 3),
-
-              // Legal
+              const SizedBox(height: 8),
               Text(
-                'Cancel anytime. Subscription auto-renews.',
+                'Subscription auto-renews. Cancel anytime in settings.',
                 style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withOpacity(0.25),
+                  fontSize: 10,
+                  color: Colors.white.withOpacity(0.2),
                 ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
             ],
@@ -364,28 +380,34 @@ class _PaywallScreenState extends State<PaywallScreen> {
     );
   }
 
-  Widget _bulletPoint(String text) {
-    return Row(
-      children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: const Color(0xFF7C6AE8).withOpacity(0.15),
-            borderRadius: BorderRadius.circular(8),
+  Widget _feature(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFF7C6AE8).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: const Color(0xFF7C6AE8), size: 18),
           ),
-          child: const Icon(Icons.check, color: Color(0xFF7C6AE8), size: 16),
-        ),
-        const SizedBox(width: 14),
-        Text(
-          text,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+                height: 1.2,
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

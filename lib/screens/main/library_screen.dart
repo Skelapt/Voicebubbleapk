@@ -860,7 +860,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                           height: 52,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(26),
-                            color: const Color(0xFF7C6AE8),
+                            color: const Color(0xFF1A1A2E),
                             border: Border.all(
                               color: Colors.white,
                               width: 2.5,
