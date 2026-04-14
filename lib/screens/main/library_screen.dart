@@ -703,21 +703,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                         height: 36,
                         child: Row(
                           children: [
-                            // Search icon
-                            if (!_showSearch)
-                              GestureDetector(
-                                onTap: () => setState(() => _showSearch = true),
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: surfaceColor,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(Icons.search, color: secondaryTextColor, size: 18),
-                                ),
-                              ),
-                            if (!_showSearch) const SizedBox(width: 6),
+                            // Search icon removed — FAB at bottom handles it
                             // Tag management icon
                             if (_viewMode == 0)
                               GestureDetector(
@@ -870,7 +856,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                         child: Icon(Icons.add, color: const Color(0xFF8B8FA3), size: 22),
                       ),
                     ),
-                    // CENTER FAB: Letterly-style wide pill with logo
+                    // CENTER FAB: Big logo pill with white border — stands out
                     Positioned(
                       bottom: 0,
                       child: GestureDetector(
@@ -884,21 +870,25 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                           );
                         },
                         child: Container(
-                          width: 140,
-                          height: 52,
+                          width: 150,
+                          height: 58,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(26),
+                            borderRadius: BorderRadius.circular(29),
                             color: const Color(0xFFFAF5F0),
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 3,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.3),
-                                blurRadius: 16,
+                                blurRadius: 20,
                                 offset: const Offset(0, 4),
                               ),
                             ],
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                             child: Image.asset(
                               'assets/logo.png',
                               fit: BoxFit.contain,

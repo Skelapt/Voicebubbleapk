@@ -199,15 +199,12 @@ class OverlayService : Service() {
         }
         
         try {
-            // Just the logo — no background, transparent bubble
+            // Just the logo — fills the entire bubble, no padding, no background
             val iconView = ImageView(this).apply {
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT
-                ).apply {
-                    val padding = dpToPx(4)
-                    setMargins(padding, padding, padding, padding)
-                }
+                )
                 setImageResource(R.drawable.logo)
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }

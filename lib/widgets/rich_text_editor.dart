@@ -478,6 +478,16 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
     _saveIndicatorAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _saveIndicatorController, curve: Curves.easeInOut),
     );
+
+    // Immediate save for new items that have plain text but no formatted content
+    // This ensures the delta JSON is persisted right away
+    if (widget.initialFormattedContent == null || widget.initialFormattedContent!.isEmpty) {
+      if (widget.initialPlainText != null && widget.initialPlainText!.isNotEmpty) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) _saveContent();
+        });
+      }
+    }
   }
 
   void _initializeController() {
