@@ -126,12 +126,14 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final monthlyPrice = monthlyInfo?.formatted ?? "\$4.99";
     final yearlyPrice = yearlyInfo?.formatted ?? "\$49.99";
 
-    // Calculate weekly price and savings
+    // Calculate weekly price and savings. Use the yearly product's actual
+    // currency symbol (£, $, €, ...) so we don't mix currencies on the card.
     String weeklyPrice = "\$0.96";
     String savingsText = "SAVE 60%";
-    if (yearlyInfo != null && yearlyInfo.raw > 0) {
+    if (yearly != null && yearlyInfo != null && yearlyInfo.raw > 0) {
       final weekly = yearlyInfo.raw / 52;
-      weeklyPrice = "\$${weekly.toStringAsFixed(2)}";
+      final symbol = _subscriptionService.currencySymbolOf(yearly);
+      weeklyPrice = "$symbol${weekly.toStringAsFixed(2)}";
     }
     if (monthlyInfo != null && yearlyInfo != null) {
       final monthlyRaw = monthlyInfo.raw;
