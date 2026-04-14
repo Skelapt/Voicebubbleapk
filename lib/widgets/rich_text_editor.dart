@@ -6,10 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart';
+import '../providers/app_state_provider.dart';
 import '../services/refinement_service.dart';
 import '../services/ai_service.dart';
 import '../services/feature_gate.dart';
@@ -651,6 +653,7 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
       ),
       builder: (ctx) => _RewritePresetSheet(
         textToRewrite: textToRewrite,
+        languageCode: context.read<AppStateProvider>().selectedLanguage.code,
         onResult: (newText) {
           Navigator.pop(ctx);
           if (_hasSelection) {
@@ -1775,8 +1778,13 @@ class _BottomBarIcon extends StatelessWidget {
 class _RewritePresetSheet extends StatefulWidget {
   final String textToRewrite;
   final Function(String) onResult;
+  final String languageCode;
 
-  const _RewritePresetSheet({required this.textToRewrite, required this.onResult});
+  const _RewritePresetSheet({
+    required this.textToRewrite,
+    required this.onResult,
+    required this.languageCode,
+  });
 
   @override
   State<_RewritePresetSheet> createState() => _RewritePresetSheetState();
@@ -1788,10 +1796,26 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
   final PresetFavoritesService _favoritesService = PresetFavoritesService();
   Set<String> _favoriteIds = {};
 
+  // Custom instruction state
+  final TextEditingController _instructionController = TextEditingController();
+  final AudioRecorder _instructionRecorder = AudioRecorder();
+  bool _isRecordingInstruction = false;
+  String? _recordingPath;
+
   @override
   void initState() {
     super.initState();
     _loadFavorites();
+    _instructionController.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _instructionController.dispose();
+    _instructionRecorder.dispose();
+    super.dispose();
   }
 
   Future<void> _loadFavorites() async {
@@ -1805,6 +1829,93 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
     HapticFeedback.lightImpact();
     await _favoritesService.toggleFavorite(presetId);
     await _loadFavorites();
+  }
+
+  /// Run a custom instruction against the text using existing backend
+  Future<void> _handleCustomInstruction(String instruction) async {
+    if (_loading || instruction.trim().isEmpty) return;
+
+    final canUse = await FeatureGate.canUseSTT(context);
+    if (!canUse) return;
+
+    HapticFeedback.lightImpact();
+    setState(() {
+      _loading = true;
+      _activePresetId = '_custom';
+    });
+
+    try {
+      final service = RefinementService();
+      final result = await service.customRefine(widget.textToRewrite, instruction.trim());
+      widget.onResult(result);
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Couldn\'t apply instruction: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Tap to start recording instruction. Tap again (stop icon) to stop and run.
+  Future<void> _toggleInstructionRecording() async {
+    if (_loading) return;
+
+    if (_isRecordingInstruction) {
+      // STOP — grab audio, transcribe, fill field, fire instruction
+      setState(() => _isRecordingInstruction = false);
+      try {
+        final path = await _instructionRecorder.stop();
+        if (path == null) return;
+        final file = File(path);
+        if (!await file.exists()) return;
+
+        setState(() {
+          _loading = true;
+          _activePresetId = '_custom';
+        });
+
+        final aiService = AIService();
+        final transcription = await aiService.transcribeAudio(file);
+        if (transcription.trim().isEmpty) {
+          if (mounted) setState(() => _loading = false);
+          return;
+        }
+        _instructionController.text = transcription.trim();
+        setState(() => _loading = false);
+        await _handleCustomInstruction(transcription);
+      } catch (e) {
+        if (mounted) {
+          setState(() => _loading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Voice instruction failed: $e'), backgroundColor: const Color(0xFFEF4444)),
+          );
+        }
+      }
+    } else {
+      // START recording
+      try {
+        if (!await _instructionRecorder.hasPermission()) return;
+        final dir = await getTemporaryDirectory();
+        _recordingPath = '${dir.path}/instruction_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        await _instructionRecorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100),
+          path: _recordingPath!,
+        );
+        HapticFeedback.mediumImpact();
+        setState(() => _isRecordingInstruction = true);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Mic permission needed: $e'), backgroundColor: const Color(0xFFEF4444)),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _handlePresetTap(Preset preset) async {
@@ -1824,7 +1935,7 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
       final result = await aiService.rewriteText(
         widget.textToRewrite,
         preset,
-        'en', // TODO: use user's selected language
+        widget.languageCode,
       );
       widget.onResult(result);
     } catch (e) {
@@ -1896,6 +2007,12 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
 
             const Divider(color: Color(0xFF1A1A1A), height: 1),
 
+            // Custom instruction input — type or tap mic, stays in place
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: _buildInstructionInput(),
+            ),
+
             // Preset list
             Expanded(
               child: SingleChildScrollView(
@@ -1959,6 +2076,107 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
           ],
         );
       },
+    );
+  }
+
+  /// The elite custom instruction input. Type anything or tap the mic
+  /// to speak the instruction. Never navigates away from the sheet.
+  Widget _buildInstructionInput() {
+    final isRecording = _isRecordingInstruction;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isRecording
+              ? const Color(0xFFEF4444).withOpacity(0.6)
+              : Colors.white.withOpacity(0.08),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Text field
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16, right: 4),
+              child: TextField(
+                controller: _instructionController,
+                enabled: !isRecording && !_loading,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+                textInputAction: TextInputAction.send,
+                onSubmitted: _handleCustomInstruction,
+                decoration: InputDecoration(
+                  hintText: isRecording
+                      ? 'Listening...'
+                      : 'Tell AI what you want...',
+                  hintStyle: TextStyle(
+                    color: isRecording
+                        ? const Color(0xFFEF4444).withOpacity(0.9)
+                        : Colors.white.withOpacity(0.35),
+                    fontSize: 15,
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ),
+
+          // Mic button — red with stop when recording, purple with mic otherwise
+          Padding(
+            padding: const EdgeInsets.all(6),
+            child: GestureDetector(
+              onTap: _toggleInstructionRecording,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isRecording
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF7C6AE8),
+                  shape: BoxShape.circle,
+                  boxShadow: isRecording
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFFEF4444).withOpacity(0.4),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  isRecording ? Icons.stop_rounded : Icons.mic_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+
+          // Send button — only shows when user has typed something
+          if (_instructionController.text.trim().isNotEmpty && !isRecording)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: GestureDetector(
+                onTap: () => _handleCustomInstruction(_instructionController.text),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF34C759),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
