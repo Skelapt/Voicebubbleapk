@@ -328,7 +328,7 @@ class _RecordingScreenState extends State<RecordingScreen>
             final appendedText = '${originalItem.finalText}\n\n$transcription';
             final updatedItem = originalItem.copyWith(
               finalText: appendedText,
-              formattedContent: '', // Empty clears formatted so editor reloads from plain text
+              clearFormattedContent: true, // Force editor to reload from plain text
               editHistory: [...originalItem.editHistory, transcription],
             );
             await appState.updateRecording(updatedItem);
