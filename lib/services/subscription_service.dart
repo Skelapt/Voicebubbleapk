@@ -72,6 +72,24 @@ class SubscriptionService {
     return (formatted: product.price, raw: product.rawPrice);
   }
 
+  /// Returns the locale-correct currency symbol (e.g. "£", "$", "€") for a
+  /// product, so we can render computed prices (like the per-week number
+  /// derived from the yearly raw price) in the user's actual currency instead
+  /// of hard-coding "$".
+  String currencySymbolOf(ProductDetails product) {
+    if (product is GooglePlayProductDetails) {
+      return product.currencySymbol;
+    }
+    // Fallback: pull the non-numeric prefix off the formatted price, e.g.
+    // "£6.99" -> "£", "US$4.99" -> "US$", "4,99 €" -> "€" (suffix case handled
+    // below).
+    final prefix = RegExp(r'^[^\d\-\s]+').firstMatch(product.price);
+    if (prefix != null) return prefix.group(0)!.trim();
+    final suffix = RegExp(r'[^\d\-\s]+$').firstMatch(product.price);
+    if (suffix != null) return suffix.group(0)!.trim();
+    return '\$';
+  }
+
   /// Initialize the IAP system
   Future<void> initialize() async {
     debugPrint('🛒 Initializing In-App Purchase system...');
