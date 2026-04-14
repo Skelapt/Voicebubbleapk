@@ -211,37 +211,34 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
               const SizedBox(height: 28),
 
-              // Extra top-padding so the floating "7-DAY TRIAL" badge on the
-              // yearly card doesn't clip into the feature bullets above.
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _priceCard(
-                          selected: !_isYearlySelected,
-                          onTap: () => setState(() => _isYearlySelected = false),
-                          label: 'Monthly',
-                          price: monthlyPrice,
-                          subtitle: monthlySubtitle,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _priceCard(
-                          selected: _isYearlySelected,
-                          onTap: () => setState(() => _isYearlySelected = true),
-                          label: 'Yearly',
-                          price: yearlyPrice,
-                          subtitle: yearlySubtitle,
-                          badge: '7-DAY TRIAL',
-                        ),
-                      ),
-                    ],
+              // Two price cards — IDENTICAL size (height 100). No outer
+              // padding: the floating "7-DAY TRIAL" badge is a Positioned
+              // overlay at top: -10 inside a Stack(clipBehavior: Clip.none),
+              // so it overhangs into the SizedBox(height: 28) above without
+              // displacing anything else on the page.
+              Row(
+                children: [
+                  Expanded(
+                    child: _priceCard(
+                      selected: !_isYearlySelected,
+                      onTap: () => setState(() => _isYearlySelected = false),
+                      label: 'Monthly',
+                      price: monthlyPrice,
+                      subtitle: monthlySubtitle,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _priceCard(
+                      selected: _isYearlySelected,
+                      onTap: () => setState(() => _isYearlySelected = true),
+                      label: 'Yearly',
+                      price: yearlyPrice,
+                      subtitle: yearlySubtitle,
+                      badge: '7-DAY TRIAL',
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 20),
@@ -305,9 +302,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
     );
   }
 
-  /// Price card. Both monthly and yearly use the same structure so users can
-  /// compare at a glance. Passing a non-null [badge] renders a pill floating
-  /// over the top edge of the card (used for "7-DAY TRIAL" on yearly).
+  /// Price card — EXACT old size (height 100, vertical padding 14). Both
+  /// monthly and yearly use the same structure so users can compare at a
+  /// glance. Passing a non-null [badge] renders a pill floating over the
+  /// top edge of the card; the card itself is not resized or padded.
   Widget _priceCard({
     required bool selected,
     required VoidCallback onTap,
@@ -319,7 +317,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final card = GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+        height: 100,
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: selected
               ? const Color(0xFF7C6AE8).withOpacity(0.12)
@@ -338,32 +337,26 @@ class _PaywallScreenState extends State<PaywallScreen> {
             Text(
               label,
               style: TextStyle(
-                fontSize: 13,
-                color: Colors.white.withOpacity(0.6),
-                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: Colors.white.withOpacity(0.5),
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 8),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                price,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
+            const SizedBox(height: 6),
+            Text(
+              price,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 4),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withOpacity(0.4),
-                ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withOpacity(0.35),
               ),
             ),
           ],
@@ -374,13 +367,15 @@ class _PaywallScreenState extends State<PaywallScreen> {
     if (badge == null) return card;
 
     // Floating green "7-DAY TRIAL" pill overlapping the top edge of the card.
+    // The card itself keeps height 100, identical to the monthly card — the
+    // badge is a pure overlay that does not displace or resize anything.
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
       children: [
-        Padding(padding: const EdgeInsets.only(top: 10), child: card),
+        card,
         Positioned(
-          top: -2,
+          top: -10,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
