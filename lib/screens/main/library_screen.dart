@@ -870,14 +870,14 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                           );
                         },
                         child: Container(
-                          width: 150,
-                          height: 58,
+                          width: 110,
+                          height: 52,
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(29),
-                            color: const Color(0xFFFAF5F0),
+                            borderRadius: BorderRadius.circular(26),
+                            color: const Color(0xFF7C6AE8),
                             border: Border.all(
                               color: Colors.white,
-                              width: 3,
+                              width: 2.5,
                             ),
                             boxShadow: [
                               BoxShadow(
@@ -1112,8 +1112,10 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
 
   Widget _buildLetterlyEmptyState() {
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.55,
-      child: Center(
+      height: MediaQuery.of(context).size.height * 0.65,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1154,6 +1156,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
             ),
           ],
         ),
+      )],
       ),
     );
   }
