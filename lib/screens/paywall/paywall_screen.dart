@@ -166,11 +166,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
 
-              const Spacer(flex: 2),
+              const Spacer(flex: 1),
 
               // Logo
-              Image.asset('assets/logo.png', width: 72, height: 72),
-              const SizedBox(height: 20),
+              Image.asset('assets/logo.png', width: 68, height: 68),
+              const SizedBox(height: 16),
 
               // Title
               const Text(
@@ -183,30 +183,30 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.45)),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
-              // Social proof
+              // Social proof — centered stars
               Row(
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ...List.generate(5, (i) => const Icon(Icons.star_rounded, size: 18, color: Color(0xFFFFD700))),
+                  ...List.generate(5, (i) => const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 1),
+                    child: Icon(Icons.star_rounded, size: 20, color: Color(0xFFFFD700)),
+                  )),
                   const SizedBox(width: 8),
-                  Text('4.8', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.9))),
-                  const SizedBox(width: 4),
-                  Text('(2,400+ reviews)', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.35))),
+                  Text('4.8', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.9))),
                 ],
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
-              // Feature bullets
-              _feature(Icons.mic_none_rounded, 'Unlimited voice-to-text recordings'),
-              _feature(Icons.auto_awesome_rounded, 'AI-powered rewriting in any style'),
+              // 3 feature bullets — bigger text
+              _feature(Icons.mic_none_rounded, 'Unlimited voice-to-text transcriptions'),
+              _feature(Icons.auto_awesome_rounded, 'Unlimited AI rewrites'),
               _feature(Icons.upload_file_rounded, 'Upload audio files for transcription'),
-              _feature(Icons.ios_share_rounded, 'Export to PDF, Word, Email'),
-              _feature(Icons.bolt_rounded, 'Priority processing — no waiting'),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
               // Two price cards — IDENTICAL SIZE
               Row(
@@ -326,20 +326,20 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.3)),
               ),
 
-              const Spacer(flex: 3),
+              const SizedBox(height: 16),
 
               // Restore + legal
               GestureDetector(
                 onTap: _isLoading || _isPurchasing ? null : _handleRestore,
                 child: Text('Restore Purchase', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.35))),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 'Subscription auto-renews. Cancel anytime in settings.',
                 style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.2)),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
+              const Spacer(flex: 1),
             ],
           ),
         ),
@@ -349,21 +349,21 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   Widget _feature(IconData icon, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: [
           Container(
-            width: 30,
-            height: 30,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: const Color(0xFF7C6AE8).withOpacity(0.12),
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: const Color(0xFF7C6AE8), size: 16),
+            child: Icon(icon, color: const Color(0xFF7C6AE8), size: 18),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
-            child: Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white, height: 1.2)),
+            child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white, height: 1.2)),
           ),
         ],
       ),
