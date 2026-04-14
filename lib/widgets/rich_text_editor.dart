@@ -1426,8 +1426,8 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                       // Content layer (scrollable)
                       SingleChildScrollView(
                         child: Container(
-                          // Clean dark background - matches app
-                          color: widget.backgroundId == null ? const Color(0xFF000000) : Colors.transparent,
+                          // Clean navy background - matches app
+                          color: widget.backgroundId == null ? const Color(0xFF0D0D1A) : Colors.transparent,
                           padding: const EdgeInsets.all(16),
                           constraints: BoxConstraints(
                             minHeight: MediaQuery.of(context).size.height - 100,
@@ -1603,29 +1603,29 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0A0A0A),
-                    border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
+                    color: const Color(0xFF0D0D1A),
+                    border: Border(top: BorderSide(color: Colors.white.withOpacity(0.06))),
                   ),
                   child: SafeArea(
                     top: false,
                     child: Row(
                       children: [
-                        // Pin button (left)
+                        // Add content button (left)
+                        if (widget.showTopToolbar && !widget.readOnly)
+                          _BottomBarIcon(
+                            icon: Icons.add,
+                            color: Colors.white54,
+                            onTap: _showAddContentMenu,
+                          ),
+                        if (widget.showTopToolbar && !widget.readOnly)
+                          const SizedBox(width: 8),
+
+                        // Pin button
                         if (widget.showTopToolbar && !widget.readOnly)
                           _BottomBarIcon(
                             icon: _isPinned ? Icons.push_pin : Icons.push_pin_outlined,
                             color: _isPinned ? const Color(0xFFF59E0B) : Colors.white54,
                             onTap: _togglePin,
-                          ),
-                        if (widget.showTopToolbar && !widget.readOnly)
-                          const SizedBox(width: 8),
-
-                        // Tags / hashtag button
-                        if (widget.showTopToolbar && !widget.readOnly)
-                          _BottomBarIcon(
-                            icon: Icons.tag,
-                            color: Colors.white54,
-                            onTap: _showAddContentMenu,
                           ),
 
                         const Spacer(),
@@ -1643,12 +1643,12 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.auto_awesome, size: 18, color: Colors.black87),
+                                  Icon(Icons.auto_awesome, size: 18, color: Color(0xFF1A1A2E)),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Rewrite',
                                     style: TextStyle(
-                                      color: Colors.black87,
+                                      color: Color(0xFF1A1A2E),
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1660,17 +1660,17 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
 
                         const Spacer(),
 
-                        // Share button
+                        // Background picker
                         if (widget.showTopToolbar && !widget.readOnly)
                           _BottomBarIcon(
-                            icon: Icons.ios_share,
+                            icon: Icons.palette_outlined,
                             color: Colors.white54,
-                            onTap: () {},  // Handled by recording_detail_screen menu
+                            onTap: _showBackgroundPicker,
                           ),
                         if (widget.showTopToolbar && !widget.readOnly)
                           const SizedBox(width: 8),
 
-                        // More options (add content, background, etc.)
+                        // More options
                         if (widget.showTopToolbar && !widget.readOnly)
                           _BottomBarIcon(
                             icon: Icons.more_horiz,
@@ -1761,8 +1761,8 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
   Future<void> _handlePresetTap(Preset preset) async {
     if (_loading) return;
 
-    // Check if user can use AI
-    final canUse = await FeatureGate.canUseHighlightAI(context);
+    // Use same gate as recording — 5 min free, then upgrade
+    final canUse = await FeatureGate.canUseSTT(context);
     if (!canUse) return;
 
     setState(() {

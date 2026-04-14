@@ -710,11 +710,11 @@ class _ResultScreenState extends State<ResultScreen> {
     final canUndo = _historyIndex > 0;
     final canRedo = _historyIndex < _textHistory.length - 1;
     
-    final backgroundColor = const Color(0xFF000000);
-    final surfaceColor = const Color(0xFF1A1A1A);
+    final backgroundColor = const Color(0xFF0D0D1A);
+    final surfaceColor = const Color(0xFF1A1A2E);
     final textColor = Colors.white;
     final secondaryTextColor = const Color(0xFF94A3B8);
-    final primaryColor = const Color(0xFF3B82F6);
+    final primaryColor = const Color(0xFF7C6AE8);
 
     return Scaffold(
       backgroundColor: backgroundColor,

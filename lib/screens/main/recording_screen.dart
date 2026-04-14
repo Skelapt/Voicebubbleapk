@@ -61,8 +61,8 @@ class _RecordingScreenState extends State<RecordingScreen>
   bool _limitReached = false;
   
   // App colors
-  final Color _primaryBlue = const Color(0xFF3B82F6);
-  final Color _darkBlue = const Color(0xFF2563EB);
+  final Color _primaryBlue = const Color(0xFF7C6AE8);
+  final Color _darkBlue = const Color(0xFF5B4BC9);
   
   @override
   void initState() {
@@ -328,7 +328,7 @@ class _RecordingScreenState extends State<RecordingScreen>
             final appendedText = '${originalItem.finalText}\n\n$transcription';
             final updatedItem = originalItem.copyWith(
               finalText: appendedText,
-              formattedContent: '', // Clear formatted so editor reloads from plain text
+              formattedContent: '', // Empty clears formatted so editor reloads from plain text
               editHistory: [...originalItem.editHistory, transcription],
             );
             await appState.updateRecording(updatedItem);
@@ -438,7 +438,7 @@ class _RecordingScreenState extends State<RecordingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF0D0D1A),
       body: SafeArea(
         child: Column(
           children: [

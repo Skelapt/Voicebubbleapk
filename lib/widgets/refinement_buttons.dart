@@ -15,7 +15,7 @@ class RefinementButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surfaceColor = const Color(0xFF1A1A1A);
+    final surfaceColor = const Color(0xFF1A1A2E);
     final textColor = Colors.white;
     final secondaryTextColor = const Color(0xFF94A3B8);
 
@@ -82,7 +82,7 @@ class RefinementButtons extends StatelessWidget {
     required Color textColor,
   }) {
     final isActive = activeRefinement == refinementType;
-    final primaryColor = const Color(0xFF3B82F6);
+    final primaryColor = const Color(0xFF7C6AE8);
 
     return Material(
       color: Colors.transparent,

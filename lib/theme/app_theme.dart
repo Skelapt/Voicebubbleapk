@@ -11,12 +11,12 @@ class AppTheme {
   static const lightTextSecondary = Color(0xFF6B7280);
   
   // Dark Theme Colors
-  static const darkBackground = Color(0xFF0F172A); // slate-900
-  static const darkSurface = Color(0xFF1E293B); // slate-800
-  static const darkPrimary = Color(0xFFA855F7); // purple-500
-  static const darkSecondary = Color(0xFFF472B6); // pink-400
+  static const darkBackground = Color(0xFF0D0D1A); // deep navy
+  static const darkSurface = Color(0xFF1A1A2E); // navy surface
+  static const darkPrimary = Color(0xFF7C6AE8); // premium purple
+  static const darkSecondary = Color(0xFFE8A06A); // warm gold accent
   static const darkText = Color(0xFFFFFFFF);
-  static const darkTextSecondary = Color(0xFF94A3B8); // slate-400
+  static const darkTextSecondary = Color(0xFF8B8FA3); // muted lavender
 
   // Gradient Colors
   static const purplePinkGradient = [Color(0xFF9333EA), Color(0xFFEC4899)];

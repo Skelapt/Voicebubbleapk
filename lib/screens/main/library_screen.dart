@@ -471,11 +471,11 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = const Color(0xFF000000);
-    final surfaceColor = const Color(0xFF1A1A1A);
+    final backgroundColor = const Color(0xFF0D0D1A);
+    final surfaceColor = const Color(0xFF1A1A2E);
     final textColor = Colors.white;
-    final secondaryTextColor = const Color(0xFF94A3B8);
-    final primaryColor = const Color(0xFF3B82F6);
+    final secondaryTextColor = const Color(0xFF8B8FA3);
+    final primaryColor = const Color(0xFF7C6AE8);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -660,40 +660,34 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                       ),
                       const SizedBox(height: 14),
 
-                      // Search Bar — clean, slim, with inline icons
-                      Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: surfaceColor,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                      // Search + Tags — all on one line
+                      SizedBox(
+                        height: 38,
                         child: Row(
                           children: [
-                            // Search field
-                            Expanded(
-                              child: TextField(
-                                onChanged: (value) {
-                                  setState(() => _searchQuery = value.toLowerCase());
-                                  if (value.isNotEmpty && value.length >= 3) {
-                                    AnalyticsService().logCustomEvent(
-                                      eventName: 'library_search_used',
-                                      parameters: {'query_length': value.length},
-                                    );
+                            // Search icon button
+                            GestureDetector(
+                              onTap: () {
+                                // Toggle search field visibility
+                                setState(() {
+                                  if (_searchQuery.isNotEmpty) {
+                                    _searchQuery = '';
                                   }
-                                },
-                                style: TextStyle(color: textColor, fontSize: 14),
-                                decoration: InputDecoration(
-                                  hintText: 'Search library...',
-                                  hintStyle: TextStyle(color: secondaryTextColor, fontSize: 14),
-                                  prefixIcon: Icon(Icons.search, color: secondaryTextColor, size: 20),
-                                  prefixIconConstraints: const BoxConstraints(minWidth: 40),
-                                  border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                });
+                              },
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: surfaceColor,
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
+                                child: Icon(Icons.search, color: secondaryTextColor, size: 18),
                               ),
                             ),
-                            if (_viewMode == 0) ...[
-                              // Tag management — slim icon
+                            const SizedBox(width: 8),
+                            // Tag management icon
+                            if (_viewMode == 0)
                               GestureDetector(
                                 onTap: () async {
                                   await showDialog(
@@ -705,16 +699,19 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                                     setState(() {});
                                   }
                                 },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  child: Icon(
-                                    Icons.label_outline,
-                                    color: _selectedTagId != null ? primaryColor : secondaryTextColor,
-                                    size: 20,
+                                child: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: surfaceColor,
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
+                                  child: Icon(Icons.label_outline, color: secondaryTextColor, size: 18),
                                 ),
                               ),
-                              // Batch operations — slim icon
+                            if (_viewMode == 0) const SizedBox(width: 8),
+                            // Batch operations icon
+                            if (_viewMode == 0)
                               GestureDetector(
                                 onTap: () {
                                   Navigator.push(
@@ -729,37 +726,37 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                                     ),
                                   );
                                 },
-                                child: Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: Icon(
-                                    Icons.checklist,
-                                    color: secondaryTextColor,
-                                    size: 20,
+                                child: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: surfaceColor,
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
+                                  child: Icon(Icons.checklist, color: secondaryTextColor, size: 18),
                                 ),
                               ),
-                            ],
+                            if (_viewMode == 0) const SizedBox(width: 8),
+                            // Scrollable tag chips (fills remaining space)
+                            if (_viewMode == 0)
+                              Expanded(
+                                child: TagFilterChips(
+                                  selectedTagId: _selectedTagId,
+                                  onTagSelected: (tagId) {
+                                    setState(() => _selectedTagId = tagId);
+                                    if (tagId != null) {
+                                      AnalyticsService().logCustomEvent(
+                                        eventName: 'library_filtered_by_tag',
+                                        parameters: {'tag_id': tagId},
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-
-                      // Tag Filter Chips (moved up)
-                      if (_viewMode == 0)
-                        TagFilterChips(
-                          selectedTagId: _selectedTagId,
-                          onTagSelected: (tagId) {
-                            setState(() => _selectedTagId = tagId);
-                            if (tagId != null) {
-                              AnalyticsService().logCustomEvent(
-                                eventName: 'library_filtered_by_tag',
-                                parameters: {'tag_id': tagId},
-                              );
-                            }
-                          },
-                        ),
-                      if (_viewMode == 0) const SizedBox(height: 16),
-                      if (_viewMode == 1) const SizedBox(height: 8),
+                      const SizedBox(height: 14),
 
                       // Content based on mode
                       if (_viewMode == 1) ...[
@@ -781,7 +778,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                       ] else ...[
                         // Library - Recordings grid
                         if (recordings.isEmpty)
-                          _buildEmptyState('No recordings yet', 'Your recordings will appear here', secondaryTextColor)
+                          _buildLetterlyEmptyState()
                         else
                           // Grid layout for recordings
                           GridView.builder(
@@ -840,53 +837,35 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                         child: const Icon(Icons.insert_drive_file, color: Colors.white, size: 24),
                       ),
                     ),
-                    // CENTER FAB: Clean round mic + label
+                    // CENTER FAB: Premium mic button
                     Positioned(
                       bottom: 0,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              Provider.of<AppStateProvider>(context, listen: false).reset();
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const RecordingScreen(),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              width: 72,
-                              height: 72,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF3B82F6).withOpacity(0.4),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
+                      child: GestureDetector(
+                        onTap: () {
+                          Provider.of<AppStateProvider>(context, listen: false).reset();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RecordingScreen(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(22),
+                            color: const Color(0xFFFAF5F0),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFFAF5F0).withOpacity(0.25),
+                                blurRadius: 20,
+                                offset: const Offset(0, 6),
                               ),
-                              child: const Icon(Icons.mic, size: 32, color: Colors.white),
-                            ),
+                            ],
                           ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Speak, AI Writes, Done.',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
+                          child: const Icon(Icons.mic, size: 30, color: Color(0xFF1A1A2E)),
+                        ),
                       ),
                     ),
                     // RIGHT FAB: MultiOptionFab (without voice option)
@@ -1083,6 +1062,54 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
       floatingActionButtonLocation: _viewMode == 1
           ? FloatingActionButtonLocation.endFloat
           : FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildLetterlyEmptyState() {
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.45,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Hi there',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Let's make the\nfirst recording",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF7C6AE8),
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Tap the microphone button\nto get started',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: const Color(0xFF94A3B8),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Icon(
+              Icons.keyboard_arrow_down,
+              color: const Color(0xFF94A3B8).withOpacity(0.5),
+              size: 24,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -45,7 +45,7 @@ class _AddTagBottomSheetState extends State<AddTagBottomSheet> {
     final backgroundColor = const Color(0xFF1A1A1A);
     final textColor = Colors.white;
     final secondaryTextColor = const Color(0xFF94A3B8);
-    final primaryColor = const Color(0xFF3B82F6);
+    final primaryColor = const Color(0xFF7C6AE8);
 
     return Container(
       decoration: BoxDecoration(

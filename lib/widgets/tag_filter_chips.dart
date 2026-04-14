@@ -37,33 +37,27 @@ class _TagFilterChipsState extends State<TagFilterChips> {
 
   @override
   Widget build(BuildContext context) {
-    // If no tags exist, don't show anything
     if (_tags.isEmpty) return const SizedBox.shrink();
 
-    return SizedBox(
-      height: 36,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          // Tag chips — tap to filter, tap again to unfilter (back to all)
-          ..._tags.map((tag) => Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: TagChip(
-              tag: tag,
-              isSelected: widget.selectedTagId == tag.id,
-              size: 'large',
-              onTap: () {
-                // Toggle: if already selected, deselect (show all)
-                if (widget.selectedTagId == tag.id) {
-                  widget.onTagSelected(null);
-                } else {
-                  widget.onTagSelected(tag.id);
-                }
-              },
-            ),
-          )).toList(),
-        ],
-      ),
+    return ListView(
+      scrollDirection: Axis.horizontal,
+      children: [
+        ..._tags.map((tag) => Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: TagChip(
+            tag: tag,
+            isSelected: widget.selectedTagId == tag.id,
+            size: 'large',
+            onTap: () {
+              if (widget.selectedTagId == tag.id) {
+                widget.onTagSelected(null);
+              } else {
+                widget.onTagSelected(tag.id);
+              }
+            },
+          ),
+        )).toList(),
+      ],
     );
   }
 

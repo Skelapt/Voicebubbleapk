@@ -36,7 +36,7 @@ class OutcomeCard extends StatelessWidget {
     final gradientColors = _getGradientColors();
     final textColor = Colors.white;
     final secondaryTextColor = const Color(0xFF94A3B8);
-    final surfaceColor = const Color(0xFF1A1A1A);
+    final surfaceColor = const Color(0xFF1A1A2E);
 
     return GestureDetector(
       onTap: onTap,

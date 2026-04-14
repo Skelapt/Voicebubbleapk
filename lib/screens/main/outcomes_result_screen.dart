@@ -189,8 +189,8 @@ class _OutcomesResultScreenState extends State<OutcomesResultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = const Color(0xFF000000);
-    final surfaceColor = const Color(0xFF1A1A1A);
+    final backgroundColor = const Color(0xFF0D0D1A);
+    final surfaceColor = const Color(0xFF1A1A2E);
     final textColor = Colors.white;
     final secondaryTextColor = const Color(0xFF94A3B8);
     final primaryColor = const Color(0xFF22D3EE); // Outcomes color

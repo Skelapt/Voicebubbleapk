@@ -325,8 +325,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = const Color(0xFF000000); // Always black
-    final surfaceColor = const Color(0xFF1A1A1A); // Dark gray for cards
+    final backgroundColor = const Color(0xFF0D0D1A); // Always black
+    final surfaceColor = const Color(0xFF1A1A2E); // Dark gray for cards
     final textColor = Colors.white; // Always white text
     final secondaryTextColor = const Color(0xFF94A3B8); // Light gray
     
@@ -512,7 +512,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       child: Consumer<AppStateProvider>(
                         builder: (context, appState, _) {
                           final language = appState.selectedLanguage;
-                          final primaryColor = const Color(0xFF3B82F6);
+                          final primaryColor = const Color(0xFF7C6AE8);
                           return Row(
                             children: [
                               // Language Selector (left)

@@ -63,11 +63,11 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = const Color(0xFF000000);
-    final surfaceColor = const Color(0xFF1A1A1A);
+    final backgroundColor = const Color(0xFF0D0D1A);
+    final surfaceColor = const Color(0xFF1A1A2E);
     final textColor = Colors.white;
-    final secondaryTextColor = const Color(0xFF94A3B8);
-    final primaryColor = const Color(0xFF3B82F6);
+    final secondaryTextColor = const Color(0xFF8B8FA3);
+    final primaryColor = const Color(0xFF7C6AE8);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -296,10 +296,12 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                         ),
                 ),
 
-                // Tags row (dashed + Tags like Letterly)
+                // Tags row — LEFT aligned
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                  child: GestureDetector(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
                     onTap: () {
                       showModalBottomSheet(
                         context: context,
@@ -336,6 +338,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                       ),
                     ),
                   ),
+                  ),
                 ),
 
                 // Content based on type
@@ -359,14 +362,18 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                 : throw Exception('Recording not found'),
           );
 
-          return FloatingActionButton.small(
-            onPressed: () => _handleContinue(context, appState, item),
-            backgroundColor: primaryColor,
-            tooltip: 'Continue with AI',
-            child: const Icon(
-              Icons.mic,
-              color: Colors.white,
-              size: 20,
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 50),
+            child: FloatingActionButton(
+              onPressed: () => _handleContinue(context, appState, item),
+              backgroundColor: const Color(0xFFFAF5F0),
+              tooltip: 'Continue recording',
+              elevation: 4,
+              child: const Icon(
+                Icons.mic,
+                color: Color(0xFF1A1A2E),
+                size: 24,
+              ),
             ),
           );
         },
