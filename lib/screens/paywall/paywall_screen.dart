@@ -119,19 +119,23 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Widget build(BuildContext context) {
     final monthly = _subscriptionService.monthlyProduct;
     final yearly = _subscriptionService.yearlyProduct;
-    final monthlyPrice = monthly?.price ?? "\$4.99";
-    final yearlyPrice = yearly?.price ?? "\$49.99";
+    // Use the *regular* recurring price, not the introductory/free-trial
+    // phase. Otherwise a yearly plan with a 7-day free trial shows as $0.00.
+    final monthlyInfo = monthly != null ? _subscriptionService.regularPriceOf(monthly) : null;
+    final yearlyInfo = yearly != null ? _subscriptionService.regularPriceOf(yearly) : null;
+    final monthlyPrice = monthlyInfo?.formatted ?? "\$4.99";
+    final yearlyPrice = yearlyInfo?.formatted ?? "\$49.99";
 
     // Calculate weekly price and savings
     String weeklyPrice = "\$0.96";
     String savingsText = "SAVE 60%";
-    if (yearly != null) {
-      final weekly = yearly.rawPrice / 52;
+    if (yearlyInfo != null && yearlyInfo.raw > 0) {
+      final weekly = yearlyInfo.raw / 52;
       weeklyPrice = "\$${weekly.toStringAsFixed(2)}";
     }
-    if (monthly != null && yearly != null) {
-      final monthlyRaw = monthly.rawPrice;
-      final yearlyRaw = yearly.rawPrice;
+    if (monthlyInfo != null && yearlyInfo != null) {
+      final monthlyRaw = monthlyInfo.raw;
+      final yearlyRaw = yearlyInfo.raw;
       if (monthlyRaw > 0) {
         final yearlyEquivalent = monthlyRaw * 12;
         final savings = ((yearlyEquivalent - yearlyRaw) / yearlyEquivalent * 100).round();
