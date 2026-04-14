@@ -1674,12 +1674,12 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
 
                         const Spacer(),
 
-                        // More options (background, etc)
+                        // Background picker
                         if (widget.showTopToolbar && !widget.readOnly)
                           _BottomBarIcon(
-                            icon: Icons.more_horiz,
+                            icon: Icons.palette_outlined,
                             color: Colors.white54,
-                            onTap: _showEditorOptionsMenu,
+                            onTap: _showBackgroundPicker,
                           ),
                         if (widget.showTopToolbar && !widget.readOnly)
                           const SizedBox(width: 8),
