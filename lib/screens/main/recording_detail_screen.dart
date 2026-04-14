@@ -143,6 +143,20 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                                 style: TextStyle(fontSize: 13, color: secondaryTextColor),
                               ),
                               const Spacer(),
+                              // Share button — direct action, no menu
+                              GestureDetector(
+                                onTap: () => _handleMenuAction(context, appState, item, 'share'),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.06),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.ios_share_rounded, color: textColor, size: 18),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               PopupMenuButton<String>(
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
