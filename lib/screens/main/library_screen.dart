@@ -1190,7 +1190,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
 
   Widget _buildLetterlyEmptyState() {
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.65,
+      height: MediaQuery.of(context).size.height * 0.62,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [Center(
