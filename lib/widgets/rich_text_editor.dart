@@ -1878,7 +1878,7 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
             Expanded(
               child: ListView.builder(
                 controller: scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
                 itemCount: categories.length,
                 itemBuilder: (context, categoryIndex) {
                   final category = categories[categoryIndex];

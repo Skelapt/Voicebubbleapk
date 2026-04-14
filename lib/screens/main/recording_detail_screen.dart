@@ -116,234 +116,129 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                 if (backgroundWidget != null)
                   Positioned.fill(child: backgroundWidget),
                 
-                // Content layer
+                // Content layer — single scrollable unit
                 Column(
               children: [
-                // ═══════════════════════════════════════════
-                // CLEAN HEADER: Back arrow + date + 3-dot menu
-                // ═══════════════════════════════════════════
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Row(
-                    children: [
-                      // Back arrow (clean, no circle bg)
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () => Navigator.pop(context),
-                        icon: Icon(Icons.arrow_back_ios_new, color: const Color(0xFF8B5CF6), size: 22),
-                      ),
-
-                      const Spacer(),
-
-                      // Date display
-                      Text(
-                        _formatDate(item.createdAt),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: secondaryTextColor,
-                        ),
-                      ),
-
-                      const Spacer(),
-
-                      // 3-dot menu ONLY
-                      PopupMenuButton<String>(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: Icon(Icons.more_vert, color: textColor, size: 22),
-                        color: surfaceColor,
-                        onSelected: (value) => _handleMenuAction(context, appState, item, value),
-                        itemBuilder: (context) {
-                          final isOutcome = item.outcomes.isNotEmpty && item.hiddenInLibrary;
-
-                          return [
-                            PopupMenuItem(
-                              value: 'continue',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.mic, color: primaryColor, size: 18),
-                                  const SizedBox(width: 12),
-                                  Text('Continue', style: TextStyle(color: textColor)),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'version_history',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.history, color: primaryColor, size: 18),
-                                  const SizedBox(width: 12),
-                                  Text('Version History', style: TextStyle(color: textColor)),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'share',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.share, color: textColor, size: 18),
-                                  const SizedBox(width: 12),
-                                  Text('Share', style: TextStyle(color: textColor)),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'add_to_project',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.folder_outlined, color: textColor, size: 18),
-                                  const SizedBox(width: 12),
-                                  Text('Add to Project', style: TextStyle(color: textColor)),
-                                ],
-                              ),
-                            ),
-                            if (!isOutcome)
-                              PopupMenuItem(
-                                value: 'manage_tags',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.local_offer, color: textColor, size: 18),
-                                    const SizedBox(width: 12),
-                                    Text('Manage Tags', style: TextStyle(color: textColor)),
-                                  ],
-                                ),
-                              ),
-                            PopupMenuItem(
-                              value: 'import',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.file_download, color: const Color(0xFF8B5CF6), size: 18),
-                                  const SizedBox(width: 12),
-                                  Text('Import', style: TextStyle(color: textColor)),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: 'export',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.upload, color: textColor, size: 18),
-                                  const SizedBox(width: 12),
-                                  Text('Export', style: TextStyle(color: textColor)),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuDivider(),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete_forever, color: Color(0xFFEF4444), size: 18),
-                                  const SizedBox(width: 12),
-                                  Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
-                                ],
-                              ),
-                            ),
-                          ];
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ═══════════════════════════════════════════
-                // BIG HEADLINE (tappable to edit)
-                // ═══════════════════════════════════════════
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                  child: _isEditingTitle
-                      ? Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _titleController,
-                                style: TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                ),
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
-                                  isDense: true,
-                                ),
-                                autofocus: true,
-                                maxLines: null,
-                                onSubmitted: (_) => _saveTitle(appState, item),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () => _saveTitle(appState, item),
-                              child: Icon(Icons.check, color: primaryColor, size: 22),
-                            ),
-                          ],
-                        )
-                      : GestureDetector(
-                          onTap: () => _startEditingTitle(item),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              _getDisplayTitle(item),
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.bold,
-                                color: textColor,
-                              ),
-                            ),
-                          ),
-                        ),
-                ),
-
-                // Tags row — LEFT aligned
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (context) => AddTagBottomSheet(
-                          recordingId: item.id,
-                          currentTags: item.tags,
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.15),
-                          style: BorderStyle.solid,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add, color: secondaryTextColor, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Tags',
-                            style: TextStyle(
-                              color: secondaryTextColor,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  ),
-                ),
-
-                // Content based on type
                 Expanded(
-                  child: _buildContentEditor(item, appState),
+                  child: NestedScrollView(
+                    headerSliverBuilder: (context, innerBoxIsScrolled) {
+                      return [
+                        SliverAppBar(
+                          backgroundColor: backgroundColor,
+                          automaticallyImplyLeading: false,
+                          floating: true,
+                          snap: true,
+                          toolbarHeight: 44,
+                          title: Row(
+                            children: [
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () => Navigator.pop(context),
+                                icon: Icon(Icons.arrow_back_ios_new, color: primaryColor, size: 22),
+                              ),
+                              const Spacer(),
+                              Text(
+                                _formatDate(item.createdAt),
+                                style: TextStyle(fontSize: 13, color: secondaryTextColor),
+                              ),
+                              const Spacer(),
+                              PopupMenuButton<String>(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: Icon(Icons.more_vert, color: textColor, size: 22),
+                                color: surfaceColor,
+                                onSelected: (value) => _handleMenuAction(context, appState, item, value),
+                                itemBuilder: (context) {
+                                  final isOutcome = item.outcomes.isNotEmpty && item.hiddenInLibrary;
+                                  return [
+                                    PopupMenuItem(value: 'continue', child: Row(children: [Icon(Icons.mic, color: primaryColor, size: 18), const SizedBox(width: 12), Text('Continue', style: TextStyle(color: textColor))])),
+                                    PopupMenuItem(value: 'version_history', child: Row(children: [Icon(Icons.history, color: primaryColor, size: 18), const SizedBox(width: 12), Text('Version History', style: TextStyle(color: textColor))])),
+                                    PopupMenuItem(value: 'share', child: Row(children: [Icon(Icons.share, color: textColor, size: 18), const SizedBox(width: 12), Text('Share', style: TextStyle(color: textColor))])),
+                                    PopupMenuItem(value: 'add_to_project', child: Row(children: [Icon(Icons.folder_outlined, color: textColor, size: 18), const SizedBox(width: 12), Text('Add to Project', style: TextStyle(color: textColor))])),
+                                    if (!isOutcome) PopupMenuItem(value: 'manage_tags', child: Row(children: [Icon(Icons.local_offer, color: textColor, size: 18), const SizedBox(width: 12), Text('Manage Tags', style: TextStyle(color: textColor))])),
+                                    PopupMenuItem(value: 'import', child: Row(children: [Icon(Icons.file_download, color: const Color(0xFF8B5CF6), size: 18), const SizedBox(width: 12), Text('Import', style: TextStyle(color: textColor))])),
+                                    PopupMenuItem(value: 'export', child: Row(children: [Icon(Icons.upload, color: textColor, size: 18), const SizedBox(width: 12), Text('Export', style: TextStyle(color: textColor))])),
+                                    const PopupMenuDivider(),
+                                    PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_forever, color: Color(0xFFEF4444), size: 18), const SizedBox(width: 12), Text('Delete', style: TextStyle(color: Color(0xFFEF4444)))])),
+                                  ];
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Title + Tags as a pinned sliver that scrolls away
+                        SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Big headline
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                                child: _isEditingTitle
+                                    ? Row(
+                                        children: [
+                                          Expanded(
+                                            child: TextField(
+                                              controller: _titleController,
+                                              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: textColor),
+                                              decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.zero, isDense: true),
+                                              autofocus: true,
+                                              maxLines: null,
+                                              onSubmitted: (_) => _saveTitle(appState, item),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          GestureDetector(onTap: () => _saveTitle(appState, item), child: Icon(Icons.check, color: primaryColor, size: 22)),
+                                        ],
+                                      )
+                                    : GestureDetector(
+                                        onTap: () => _startEditingTitle(item),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          child: Text(_getDisplayTitle(item), style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: textColor)),
+                                        ),
+                                      ),
+                              ),
+                              // Tags
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (context) => AddTagBottomSheet(recordingId: item.id, currentTags: item.tags),
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.white.withOpacity(0.15)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.add, color: secondaryTextColor, size: 14),
+                                          const SizedBox(width: 4),
+                                          Text('Tags', style: TextStyle(color: secondaryTextColor, fontSize: 13)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ];
+                    },
+                    body: _buildContentEditor(item, appState),
+                  ),
                 ),
               ],
             ), // ← End of Column
