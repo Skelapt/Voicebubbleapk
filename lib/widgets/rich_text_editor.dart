@@ -13,6 +13,7 @@ import 'package:just_audio/just_audio.dart';
 import '../services/refinement_service.dart';
 import '../services/ai_service.dart';
 import '../services/feature_gate.dart';
+import '../services/preset_favorites_service.dart';
 import '../models/outcome_type.dart';
 import '../models/preset.dart';
 import '../constants/background_assets.dart';
@@ -1784,6 +1785,27 @@ class _RewritePresetSheet extends StatefulWidget {
 class _RewritePresetSheetState extends State<_RewritePresetSheet> {
   bool _loading = false;
   String? _activePresetId;
+  final PresetFavoritesService _favoritesService = PresetFavoritesService();
+  Set<String> _favoriteIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    final favorites = await _favoritesService.getFavorites();
+    if (mounted) {
+      setState(() => _favoriteIds = favorites.toSet());
+    }
+  }
+
+  Future<void> _toggleFavorite(String presetId) async {
+    HapticFeedback.lightImpact();
+    await _favoritesService.toggleFavorite(presetId);
+    await _loadFavorites();
+  }
 
   Future<void> _handlePresetTap(Preset preset) async {
     if (_loading) return;
@@ -1876,108 +1898,158 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
 
             // Preset list
             Expanded(
-              child: ListView.builder(
+              child: SingleChildScrollView(
                 controller: scrollController,
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
-                itemCount: categories.length,
-                itemBuilder: (context, categoryIndex) {
-                  final category = categories[categoryIndex];
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Category label
-                      if (category.name.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-                          child: Text(
-                            category.name.toUpperCase(),
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.4),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Favorites section at top (if any)
+                    if (_favoriteIds.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              'FAVORITES',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.5),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-
-                      // Presets in this category
-                      ...category.presets.map((preset) {
-                        final isActive = _activePresetId == preset.id;
-                        return GestureDetector(
-                          onTap: _loading ? null : () => _handlePresetTap(preset),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: isActive
-                                  ? (preset.color ?? const Color(0xFF8B5CF6)).withOpacity(0.15)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                // Icon
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: (preset.color ?? const Color(0xFF8B5CF6)).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: isActive && _loading
-                                      ? Center(
-                                          child: SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: preset.color ?? const Color(0xFF8B5CF6),
-                                            ),
-                                          ),
-                                        )
-                                      : Icon(
-                                          preset.icon,
-                                          color: preset.color ?? const Color(0xFF8B5CF6),
-                                          size: 18,
-                                        ),
-                                ),
-                                const SizedBox(width: 12),
-                                // Name + description
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        preset.name,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      Text(
-                                        preset.description,
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(0.4),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
+                      ),
+                      ...AppPresets.allPresets
+                          .where((p) => _favoriteIds.contains(p.id))
+                          .map((preset) => _buildPresetRow(preset)),
+                      const SizedBox(height: 12),
                     ],
-                  );
-                },
+
+                    // All categories (non-favorites hidden from their group since they're at top)
+                    ...categories.map((category) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (category.name.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                              child: Text(
+                                category.name.toUpperCase(),
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.4),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                          ...category.presets.map((preset) => _buildPresetRow(preset)),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
               ),
             ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildPresetRow(Preset preset) {
+    final isActive = _activePresetId == preset.id;
+    final isFav = _favoriteIds.contains(preset.id);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      decoration: BoxDecoration(
+        color: isActive
+            ? (preset.color ?? const Color(0xFF8B5CF6)).withOpacity(0.15)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: _loading ? null : () => _handlePresetTap(preset),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: (preset.color ?? const Color(0xFF8B5CF6)).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: isActive && _loading
+                          ? Center(
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: preset.color ?? const Color(0xFF8B5CF6),
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              preset.icon,
+                              color: preset.color ?? const Color(0xFF8B5CF6),
+                              size: 18,
+                            ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            preset.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            preset.description,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.4),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Star button
+          GestureDetector(
+            onTap: () => _toggleFavorite(preset.id),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Icon(
+                isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+                color: isFav ? const Color(0xFFFFD700) : Colors.white.withOpacity(0.3),
+                size: 22,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

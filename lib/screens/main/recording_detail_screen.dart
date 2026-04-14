@@ -153,7 +153,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                                     color: Colors.white.withOpacity(0.06),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(Icons.share_rounded, color: textColor, size: 18),
+                                  child: Icon(Icons.shortcut, color: textColor, size: 20),
                                 ),
                               ),
                               const SizedBox(width: 8),
