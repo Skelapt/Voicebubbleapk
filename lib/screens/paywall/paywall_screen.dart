@@ -313,7 +313,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       _isPurchasing
                           ? 'Processing...'
                           : _isYearlySelected
-                              ? 'Start Free Trial'
+                              ? 'Start 7-Day Free Trial'
                               : 'Subscribe',
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
                     ),

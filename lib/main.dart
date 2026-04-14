@@ -269,7 +269,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       setState(() {
         _currentStep++;
       });
-    } else {
+    }
+    // After permissions (step 1 → 2), finish onboarding immediately
+    if (_currentStep >= 2) {
       widget.onComplete(context);
     }
   }
