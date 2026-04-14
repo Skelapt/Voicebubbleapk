@@ -794,29 +794,15 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                                 },
                               )),
                       ] else ...[
-                        // Library - Recordings grid
+                        // Library - Recordings grouped by date
                         if (recordings.isEmpty)
                           _buildLetterlyEmptyState()
                         else
-                          // Grid layout for recordings
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 0.7,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                            ),
-                            itemCount: recordings.length,
-                            itemBuilder: (context, index) {
-                              return _buildRecordingCard(
-                                recordings[index],
-                                surfaceColor,
-                                textColor,
-                                secondaryTextColor,
-                              );
-                            },
+                          ..._buildDateGroupedRecordings(
+                            recordings,
+                            surfaceColor,
+                            textColor,
+                            secondaryTextColor,
                           ),
                       ],
                       // Add bottom padding so FABs don't cover content
@@ -1108,6 +1094,98 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
           ? FloatingActionButtonLocation.endFloat
           : FloatingActionButtonLocation.centerFloat,
     );
+  }
+
+  List<Widget> _buildDateGroupedRecordings(
+    List<RecordingItem> recordings,
+    Color surfaceColor,
+    Color textColor,
+    Color secondaryTextColor,
+  ) {
+    // Group recordings by date
+    final Map<String, List<RecordingItem>> grouped = {};
+    for (final item in recordings) {
+      final key = _getDateGroupKey(item.createdAt);
+      grouped.putIfAbsent(key, () => []).add(item);
+    }
+
+    final widgets = <Widget>[];
+    for (final entry in grouped.entries) {
+      // Date header
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _getDateGroupLabel(entry.value.first.createdAt),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _getDateGroupSubtitle(entry.value.first.createdAt),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF7C6AE8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      // Grid of cards for this date
+      widgets.add(
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.7,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          itemCount: entry.value.length,
+          itemBuilder: (context, index) {
+            return _buildRecordingCard(
+              entry.value[index],
+              surfaceColor,
+              textColor,
+              secondaryTextColor,
+            );
+          },
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
+  String _getDateGroupKey(DateTime date) {
+    return '${date.year}-${date.month}-${date.day}';
+  }
+
+  String _getDateGroupLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateDay = DateTime(date.year, date.month, date.day);
+    final diff = today.difference(dateDay).inDays;
+
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    if (diff < 7) return '${diff} days ago';
+    return 'Previous 30 days';
+  }
+
+  String _getDateGroupSubtitle(DateTime date) {
+    final months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return '${months[date.month - 1]}, ${date.day}';
   }
 
   Widget _buildLetterlyEmptyState() {
