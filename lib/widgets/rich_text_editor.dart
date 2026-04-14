@@ -643,6 +643,12 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
 
     if (!mounted) return;
 
+    // Read language code FROM CURRENT STATE, not inside builder, to guarantee
+    // we get the user's latest selectedLanguage at the moment they tap Rewrite.
+    final currentLanguage = Provider.of<AppStateProvider>(context, listen: false).selectedLanguage;
+    debugPrint('🌐 Rewrite language: ${currentLanguage.code} (${currentLanguage.name})');
+    final currentLanguageCode = currentLanguage.code;
+
     // Show full AI presets bottom sheet (Letterly-style Rewrite)
     showModalBottomSheet(
       context: context,
@@ -653,7 +659,7 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
       ),
       builder: (ctx) => _RewritePresetSheet(
         textToRewrite: textToRewrite,
-        languageCode: context.read<AppStateProvider>().selectedLanguage.code,
+        languageCode: currentLanguageCode,
         onResult: (newText) {
           Navigator.pop(ctx);
           if (_hasSelection) {
@@ -2017,6 +2023,7 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
 
     try {
       final aiService = AIService();
+      debugPrint('🎨 Rewriting with preset=${preset.id} language=${widget.languageCode}');
       final result = await aiService.rewriteText(
         widget.textToRewrite,
         preset,
