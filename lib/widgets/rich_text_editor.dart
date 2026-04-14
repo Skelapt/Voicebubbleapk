@@ -12,7 +12,6 @@ import 'package:uuid/uuid.dart';
 import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart';
 import '../providers/app_state_provider.dart';
-import '../screens/main/recording_screen.dart';
 import '../services/refinement_service.dart';
 import '../services/ai_service.dart';
 import '../services/feature_gate.dart';
@@ -669,78 +668,8 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
             });
           }
         },
-        onVoiceInstructions: () => _runVoiceInstructions(textToRewrite),
       ),
     );
-  }
-
-  /// OLD INSTRUCTIONS FLOW — reused exactly from the old ResultScreen.
-  /// Opens the recording screen in instructions mode, waits for transcribed
-  /// text, then runs RefinementService.customRefine with the master-prompt
-  /// wrapper that made the old feature a beast.
-  Future<void> _runVoiceInstructions(String textToRewrite) async {
-    if (!mounted) return;
-    final transcription = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const RecordingScreen(isInstructionsMode: true),
-      ),
-    );
-    if (transcription == null || transcription.trim().isEmpty) return;
-    if (!mounted) return;
-
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF7C6AE8)),
-      ),
-    );
-
-    try {
-      final refinementService = RefinementService();
-      // EXACT pattern from old result_screen.dart _addMoreAndRewrite
-      final combinedPrompt = '$textToRewrite\n\n[User adds: $transcription]';
-      final refined = await refinementService.customRefine(
-        combinedPrompt,
-        "Rewrite the entire text incorporating the user's addition or instruction. Maintain the original style unless the user asks to change it.",
-      );
-
-      if (!mounted) return;
-      Navigator.pop(context); // close loading
-
-      // Replace text in editor
-      if (_hasSelection) {
-        _replaceSelection(refined);
-      } else {
-        final length = _controller.document.length;
-        _controller.replaceText(0, length - 1, refined, null);
-        setState(() {
-          _hasSelection = false;
-          _selectedText = '';
-        });
-      }
-
-      HapticFeedback.mediumImpact();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✨ Rewritten with your instructions'),
-          backgroundColor: Color(0xFF10B981),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // close loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Instructions failed: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-      }
-    }
   }
 
   void _replaceSelection(String newText) {
@@ -1934,13 +1863,11 @@ class _RewritePresetSheet extends StatefulWidget {
   final String textToRewrite;
   final Function(String) onResult;
   final String languageCode;
-  final VoidCallback onVoiceInstructions;
 
   const _RewritePresetSheet({
     required this.textToRewrite,
     required this.onResult,
     required this.languageCode,
-    required this.onVoiceInstructions,
   });
 
   @override
@@ -1953,10 +1880,24 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
   final PresetFavoritesService _favoritesService = PresetFavoritesService();
   Set<String> _favoriteIds = {};
 
+  // Inline instruction recording state (stays on the sheet)
+  final AudioRecorder _instructionRecorder = AudioRecorder();
+  bool _isRecordingInstruction = false;
+  String? _instructionRecordingPath;
+  int _recordingSeconds = 0;
+  Timer? _recordingTimer;
+
   @override
   void initState() {
     super.initState();
     _loadFavorites();
+  }
+
+  @override
+  void dispose() {
+    _recordingTimer?.cancel();
+    _instructionRecorder.dispose();
+    super.dispose();
   }
 
   Future<void> _loadFavorites() async {
@@ -1972,13 +1913,94 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
     await _loadFavorites();
   }
 
-  /// Close the sheet and let the parent editor run the OLD instructions flow:
-  /// RecordingScreen(isInstructionsMode: true) → transcribe → customRefine
-  /// with the master-prompt wrapper that made the old result screen a beast.
-  void _handleInstructionsTap() {
-    HapticFeedback.lightImpact();
-    Navigator.pop(context);
-    widget.onVoiceInstructions();
+  /// INLINE recording — stays on the sheet, uses OLD backend effect:
+  /// combined prompt + master-prompt wrapper via RefinementService.customRefine.
+  Future<void> _handleInstructionsTap() async {
+    if (_loading) return;
+
+    if (_isRecordingInstruction) {
+      // STOP — transcribe + fire old flow
+      _recordingTimer?.cancel();
+      setState(() => _isRecordingInstruction = false);
+      try {
+        final path = await _instructionRecorder.stop();
+        if (path == null) return;
+        final file = File(path);
+        if (!await file.exists()) return;
+
+        setState(() {
+          _loading = true;
+          _activePresetId = '_custom';
+        });
+
+        final aiService = AIService();
+        final instruction = await aiService.transcribeAudio(file);
+        if (instruction.trim().isEmpty) {
+          if (mounted) setState(() => _loading = false);
+          return;
+        }
+
+        // OLD BEAST PATTERN from result_screen.dart _addMoreAndRewrite
+        final refinementService = RefinementService();
+        final combinedPrompt = '${widget.textToRewrite}\n\n[User adds: $instruction]';
+        final refined = await refinementService.customRefine(
+          combinedPrompt,
+          "Rewrite the entire text incorporating the user's addition or instruction. Maintain the original style unless the user asks to change it.",
+        );
+
+        widget.onResult(refined);
+      } catch (e) {
+        if (mounted) {
+          setState(() => _loading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Instructions failed: $e'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+        }
+      }
+    } else {
+      // START recording inline
+      try {
+        if (!await _instructionRecorder.hasPermission()) return;
+        final dir = await getTemporaryDirectory();
+        _instructionRecordingPath =
+            '${dir.path}/instruction_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        await _instructionRecorder.start(
+          const RecordConfig(
+            encoder: AudioEncoder.aacLc,
+            bitRate: 128000,
+            sampleRate: 44100,
+          ),
+          path: _instructionRecordingPath!,
+        );
+        HapticFeedback.mediumImpact();
+        setState(() {
+          _isRecordingInstruction = true;
+          _recordingSeconds = 0;
+        });
+        _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (!mounted) return;
+          setState(() => _recordingSeconds++);
+        });
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Mic permission needed: $e'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  String _formatRecordingTime() {
+    final m = (_recordingSeconds ~/ 60).toString().padLeft(2, '0');
+    final s = (_recordingSeconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
   Future<void> _handlePresetTap(Preset preset) async {
@@ -2142,53 +2164,92 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
     );
   }
 
-  /// Elite voice-only instruction button.
-  /// Mic icon on the left, bold statement on the right.
-  /// Tap → closes sheet → opens recording screen → transcribes → runs
-  /// old combined-prompt customRefine (master-prompt wrapper).
+  /// Voice-only instruction button — stays inline on the sheet.
+  /// Idle: purple mic + "Give AI Instructions" / "Speak what you want changed"
+  /// Recording: red pulsing stop + "Listening..." + live timer
+  /// Loading: spinner + "Rewriting with your instructions..."
   Widget _buildInstructionInput() {
+    final isRecording = _isRecordingInstruction;
+    final isRunning = _loading && _activePresetId == '_custom';
+
+    final Color accent = isRecording
+        ? const Color(0xFFEF4444)
+        : const Color(0xFF7C6AE8);
+    final String title = isRunning
+        ? 'Rewriting with your instructions'
+        : isRecording
+            ? 'Listening...'
+            : 'Give AI Instructions';
+    final String subtitle = isRunning
+        ? 'Hold tight, almost done'
+        : isRecording
+            ? 'Tap to stop and apply'
+            : 'Speak what you want changed';
+
     return GestureDetector(
-      onTap: _handleInstructionsTap,
-      child: Container(
+      onTap: isRunning ? null : _handleInstructionsTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF7C6AE8).withOpacity(0.18),
-              const Color(0xFF7C6AE8).withOpacity(0.08),
+              accent.withOpacity(isRecording ? 0.25 : 0.18),
+              accent.withOpacity(0.08),
             ],
           ),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: const Color(0xFF7C6AE8).withOpacity(0.4),
+            color: accent.withOpacity(isRecording ? 0.7 : 0.4),
             width: 1,
           ),
+          boxShadow: isRecording
+              ? [
+                  BoxShadow(
+                    color: accent.withOpacity(0.35),
+                    blurRadius: 16,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           children: [
-            // Mic pill on the left
+            // Mic / stop / spinner on the left
             Container(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: Color(0xFF7C6AE8),
+              decoration: BoxDecoration(
+                color: accent,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.mic_rounded, color: Colors.white, size: 20),
+              child: isRunning
+                  ? const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      isRecording ? Icons.stop_rounded : Icons.mic_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
             ),
             const SizedBox(width: 14),
-            // Impactful statement on the right
+            // Bold statement on the right
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Give AI Instructions',
-                    style: TextStyle(
+                  Text(
+                    title,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -2197,7 +2258,7 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Speak what you want changed',
+                    subtitle,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.55),
                       fontSize: 12,
@@ -2206,11 +2267,24 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
                 ],
               ),
             ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: Colors.white.withOpacity(0.35),
-              size: 14,
-            ),
+            // Timer while recording
+            if (isRecording)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _formatRecordingTime(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
