@@ -218,7 +218,7 @@ class OverlayService : Service() {
                     val padding = dpToPx(9) // Perfect padding for 36dp bubble
                     setMargins(padding, padding, padding, padding)
                 }
-                setImageResource(R.drawable.ic_microphone)
+                setImageResource(R.drawable.logo)
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
             container.addView(iconView)

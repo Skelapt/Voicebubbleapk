@@ -369,10 +369,12 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
               backgroundColor: const Color(0xFFFAF5F0),
               tooltip: 'Continue recording',
               elevation: 4,
-              child: const Icon(
-                Icons.mic,
-                color: Color(0xFF1A1A2E),
-                size: 24,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Image.asset(
+                  'assets/logo.png',
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
           );

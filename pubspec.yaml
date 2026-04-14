@@ -103,6 +103,7 @@ flutter:
   
   assets:
     - assets/app_logo.png
+    - assets/logo.png
     - assets/backgrounds/
   
   # Note: .env is not needed in production builds

@@ -901,7 +901,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Image.asset(
-                                'assets/app_logo.png',
+                                'assets/logo.png',
                                 fit: BoxFit.contain,
                               ),
                             ),
