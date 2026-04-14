@@ -8,8 +8,8 @@ class AccountManagementScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF000000);
-    const surfaceColor = Color(0xFF1A1A1A);
+    const backgroundColor = Color(0xFF0D0D1A);
+    const surfaceColor = Color(0xFF1A1A2E);
     const textColor = Colors.white;
     const secondaryTextColor = Color(0xFF94A3B8);
     const dividerColor = Color(0xFF334155);
@@ -187,7 +187,7 @@ class AccountManagementScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: const Color(0xFF1A1A2E),
         title: const Text('Deactivate Account', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Your account will be temporarily disabled. You can reactivate it anytime by signing in again.',
@@ -240,7 +240,7 @@ class AccountManagementScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: const Color(0xFF1A1A2E),
         title: Row(
           children: [
             const Icon(Icons.warning, color: Color(0xFFEF4444)),

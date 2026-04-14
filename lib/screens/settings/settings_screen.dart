@@ -38,8 +38,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF000000);
-    const surfaceColor = Color(0xFF1A1A1A);
+    const backgroundColor = Color(0xFF0D0D1A);
+    const surfaceColor = Color(0xFF1A1A2E);
     const textColor = Colors.white;
     const secondaryTextColor = Color(0xFF94A3B8);
 
@@ -96,7 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       height: 70,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                          colors: [Color(0xFF7C6AE8), Color(0xFF5B4BC9)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -226,7 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: const Color(0xFF1A1A2E),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Clear Cache', style: TextStyle(color: Colors.white)),
         content: const Text(
@@ -248,7 +248,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               );
             },
-            child: const Text('Clear', style: TextStyle(color: Color(0xFF3B82F6))),
+            child: const Text('Clear', style: TextStyle(color: Color(0xFF7C6AE8))),
           ),
         ],
       ),
@@ -259,7 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: const Color(0xFF1A1A2E),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Sign Out', style: TextStyle(color: Colors.white)),
         content: const Text(
@@ -302,7 +302,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
               }
             },
-            child: const Text('Sign Out', style: TextStyle(color: Color(0xFF3B82F6))),
+            child: const Text('Sign Out', style: TextStyle(color: Color(0xFF7C6AE8))),
           ),
         ],
       ),
@@ -342,7 +342,7 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFF1A1A2E),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
@@ -380,7 +380,7 @@ class _SettingsTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Row(
                 children: [
-                  Icon(icon, color: const Color(0xFF3B82F6), size: 24),
+                  Icon(icon, color: const Color(0xFF7C6AE8), size: 24),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
