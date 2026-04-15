@@ -29,6 +29,8 @@ import '../../services/version_history_service.dart';
 import '../../constants/visual_constants.dart';
 import '../../services/analytics_service.dart';
 import '../../services/review_service.dart';
+import 'package:confetti/confetti.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 // ✨ END NEW IMPORTS ✨
 
 class RecordingDetailScreen extends StatefulWidget {
@@ -48,16 +50,44 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
   late TextEditingController _titleController;
   int _editorRebuildKey = 0;  // Forces editor to rebuild with fresh content from Hive
 
+  // First-recording celebration
+  static const String _firstRecordingKey = 'has_recorded_once';
+  late final ConfettiController _confettiController;
+  bool _showUnlockBanner = false;
+
   @override
   void initState() {
     super.initState();
     AnalyticsService().logScreenView(screenName: 'RecordingDetail');
     _titleController = TextEditingController();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
+    _maybeCelebrateFirstRecording();
   }
-  
+
+  Future<void> _maybeCelebrateFirstRecording() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasRecorded = prefs.getBool(_firstRecordingKey) ?? false;
+      if (!hasRecorded) {
+        await prefs.setBool(_firstRecordingKey, true);
+        // Brief delay so the editor settles first, then celebrate
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (!mounted) return;
+        setState(() => _showUnlockBanner = true);
+        _confettiController.play();
+        HapticFeedback.mediumImpact();
+        // Auto-hide the banner after 4s
+        Future.delayed(const Duration(seconds: 4), () {
+          if (mounted) setState(() => _showUnlockBanner = false);
+        });
+      }
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -256,6 +286,37 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                 ),
               ],
             ), // ← End of Column
+
+                // 🎉 Confetti burst from the top-center on first recording
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: ConfettiWidget(
+                    confettiController: _confettiController,
+                    blastDirectionality: BlastDirectionality.explosive,
+                    shouldLoop: false,
+                    numberOfParticles: 30,
+                    maxBlastForce: 22,
+                    minBlastForce: 8,
+                    emissionFrequency: 0.05,
+                    gravity: 0.35,
+                    colors: const [
+                      Color(0xFF7C6AE8),
+                      Color(0xFFFFD700),
+                      Color(0xFFFAF5F0),
+                      Color(0xFF34C759),
+                      Color(0xFFEC4899),
+                    ],
+                  ),
+                ),
+
+                // 🎁 Unlock banner — slides down from the top
+                if (_showUnlockBanner)
+                  Positioned(
+                    top: 12,
+                    left: 24,
+                    right: 24,
+                    child: _UnlockBanner(),
+                  ),
               ], // ← End of Stack children
             ); // ← End of Stack
           },
@@ -893,5 +954,101 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
         );
       }
     }
+  }
+}
+/// "10 minutes of Pro unlocked" celebration banner — slides in from
+/// the top with a soft bounce, fades out after 4s.
+class _UnlockBanner extends StatefulWidget {
+  @override
+  State<_UnlockBanner> createState() => _UnlockBannerState();
+}
+
+class _UnlockBannerState extends State<_UnlockBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -1.2),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slide,
+      child: FadeTransition(
+        opacity: _fade,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF7C6AE8), Color(0xFF5B4BC9)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF7C6AE8).withOpacity(0.45),
+                blurRadius: 24,
+                spreadRadius: 1,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text('🎉', style: TextStyle(fontSize: 20)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '10 minutes of Pro unlocked',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    SizedBox(height: 1),
+                    Text(
+                      'Your gift is ready. Try a Rewrite.',
+                      style: TextStyle(
+                        color: Color(0xFFE0DBFF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

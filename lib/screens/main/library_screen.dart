@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -842,10 +843,10 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                         child: Icon(Icons.add, color: const Color(0xFF8B8FA3), size: 22),
                       ),
                     ),
-                    // CENTER FAB: Big logo pill with white border — stands out
+                    // CENTER FAB: Pulsing halo + breathing mic pill
                     Positioned(
                       bottom: 0,
-                      child: GestureDetector(
+                      child: _PulsingMicFab(
                         onTap: () {
                           Provider.of<AppStateProvider>(context, listen: false).reset();
                           Navigator.push(
@@ -855,32 +856,6 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                             ),
                           );
                         },
-                        child: Container(
-                          width: 110,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(26),
-                            color: const Color(0xFF1A1A2E),
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 2.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
-                                blurRadius: 20,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                            child: Image.asset(
-                              'assets/logo.png',
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
                       ),
                     ),
                     // RIGHT FAB: Search toggle — small, matching left
@@ -1191,51 +1166,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
   Widget _buildLetterlyEmptyState() {
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.62,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Hi there',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "Let's make the\nfirst recording",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF7C6AE8),
-                height: 1.2,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Tap the microphone button\nto get started',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: const Color(0xFF94A3B8),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Icon(
-              Icons.keyboard_arrow_down,
-              color: const Color(0xFF94A3B8).withOpacity(0.5),
-              size: 24,
-            ),
-          ],
-        ),
-      )],
-      ),
+      child: const _EmptyStateDelicious(),
     );
   }
 
@@ -1457,4 +1388,289 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
     }
   }
 
+}
+
+/// Mic FAB with a soft pulsing halo behind it + breathing logo.
+/// The halo fades in/out at 2s cycles — catches the eye without
+/// being obnoxious. The logo inside is tinted black so it reads
+/// against the cream pill (the PNG itself is white/transparent).
+class _PulsingMicFab extends StatefulWidget {
+  final VoidCallback onTap;
+  const _PulsingMicFab({required this.onTap});
+
+  @override
+  State<_PulsingMicFab> createState() => _PulsingMicFabState();
+}
+
+class _PulsingMicFabState extends State<_PulsingMicFab>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 180,
+      height: 90,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          // Outer pulsing halo
+          AnimatedBuilder(
+            animation: _ctrl,
+            builder: (context, _) {
+              final t = _ctrl.value;
+              final scale = 1.0 + 0.35 * t;
+              final opacity = (1.0 - t) * 0.45;
+              return Transform.scale(
+                scale: scale,
+                child: Container(
+                  width: 140,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(32),
+                    color: const Color(0xFF7C6AE8).withOpacity(opacity * 0.3),
+                    border: Border.all(
+                      color: const Color(0xFFFAF5F0).withOpacity(opacity),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          // The FAB itself
+          GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedBuilder(
+              animation: _ctrl,
+              builder: (context, child) {
+                // gentle breathing scale (1.0 ↔ 1.04)
+                final breathe = 1.0 + 0.02 * (1 - (_ctrl.value - 0.5).abs() * 2);
+                return Transform.scale(scale: breathe, child: child);
+              },
+              child: Container(
+                width: 110,
+                height: 52,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(26),
+                  color: const Color(0xFFFAF5F0),
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 2.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF7C6AE8).withOpacity(0.35),
+                      blurRadius: 24,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  child: ColorFiltered(
+                    // Tint the white logo to deep navy so it reads on cream
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFF0D0D1A),
+                      BlendMode.srcIn,
+                    ),
+                    child: Image.asset(
+                      'assets/logo.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Delicious empty state — gift banner, main line, rotating examples,
+/// bouncy arrow, "Tap and speak" — the whole close that makes the
+/// user tap the mic without thinking.
+class _EmptyStateDelicious extends StatefulWidget {
+  const _EmptyStateDelicious();
+
+  @override
+  State<_EmptyStateDelicious> createState() => _EmptyStateDeliciousState();
+}
+
+class _EmptyStateDeliciousState extends State<_EmptyStateDelicious>
+    with TickerProviderStateMixin {
+  static const List<String> _examples = [
+    '"I\'m running late — text that properly"',
+    '"I can\'t make it tonight — say it nicely"',
+    '"Write a quick sick-day message"',
+    '"Make this sound professional: I\'ll send it later"',
+    '"Just say what you mean — we\'ll fix it"',
+  ];
+
+  int _exampleIndex = 0;
+  Timer? _rotateTimer;
+  late final AnimationController _arrowCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotateTimer = Timer.periodic(const Duration(milliseconds: 3200), (_) {
+      if (!mounted) return;
+      setState(() => _exampleIndex = (_exampleIndex + 1) % _examples.length);
+    });
+    _arrowCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _rotateTimer?.cancel();
+    _arrowCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // 🎁 Gift pill
+        Container(
+          margin: const EdgeInsets.only(bottom: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7C6AE8).withOpacity(0.12),
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: const Color(0xFF7C6AE8).withOpacity(0.35),
+              width: 1,
+            ),
+          ),
+          child: const Text(
+            '🎁  Unlock 10 minutes of Pro after your first recording',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+            ),
+          ),
+        ),
+
+        // Main line — the promise
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            'Say it your way —',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: -0.4,
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            "we'll make it better",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF7C6AE8),
+              letterSpacing: -0.4,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Rotating examples — cross-fade between them
+        SizedBox(
+          height: 40,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 450),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.25),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: Text(
+                _examples[_exampleIndex],
+                key: ValueKey(_exampleIndex),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.white.withOpacity(0.55),
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 18),
+
+        // "Tap and speak" + bouncing arrow
+        Text(
+          'Tap and speak',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF7C6AE8).withOpacity(0.9),
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        AnimatedBuilder(
+          animation: _arrowCtrl,
+          builder: (context, _) {
+            return Transform.translate(
+              offset: Offset(0, 4 * _arrowCtrl.value),
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: const Color(0xFF7C6AE8).withOpacity(0.6 + 0.3 * _arrowCtrl.value),
+                size: 32,
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
 }

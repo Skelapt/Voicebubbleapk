@@ -16,6 +16,7 @@ dependencies:
   google_fonts: ^6.1.0
   flutter_svg: ^2.0.9
   shimmer: ^3.0.0
+  confetti: ^0.7.0
   
   # State Management
   provider: ^6.1.1
