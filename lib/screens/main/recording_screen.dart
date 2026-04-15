@@ -37,6 +37,7 @@ class _RecordingScreenState extends State<RecordingScreen>
   final AIService _aiService = AIService();
   
   bool _isRecording = false;
+  bool _isMagicProcessing = false;
   bool _isPaused = false;
   bool _isProcessing = false;
   String? _audioPath;
@@ -342,18 +343,53 @@ class _RecordingScreenState extends State<RecordingScreen>
             Navigator.pop(context);
           }
         } else {
-          // NEW RECORDING: Save raw transcript as new item, go straight to editor
+          // NEW RECORDING — AUTO-MAGIC FLOW
+          // ═══════════════════════════════════════════════════════════════
+          // 1) Show a magic shimmer overlay while we call Magic
+          // 2) Backend auto-detects intent (email / DM / todo / caption...)
+          // 3) We save both RAW transcript (for Undo) and POLISHED text
+          // 4) Open editor showing polished + intent badge + chips
+          // If Magic fails for any reason, we silently fall back to raw.
+          // ═══════════════════════════════════════════════════════════════
+
+          if (mounted) {
+            setState(() {
+              _isMagicProcessing = true;
+            });
+          }
+
+          String polishedText = transcription;
+          String? detectedIntent;
+          String? intentLabel;
+          List<String> alternatives = const [];
+
+          try {
+            final language = appState.selectedLanguage;
+            debugPrint('🪄 Auto-Magic: running with language=${language.code}');
+            final result = await _aiService.rewriteMagic(
+              text: transcription,
+              languageCode: language.code,
+            );
+            polishedText = result.text.isNotEmpty ? result.text : transcription;
+            detectedIntent = result.intent;
+            intentLabel = result.label;
+            alternatives = result.alternatives;
+            debugPrint('🪄 Auto-Magic done: intent=${result.intent} (${result.confidence})');
+          } catch (e) {
+            debugPrint('🪄 Auto-Magic failed, falling back to raw: $e');
+          }
+
           final itemId = const Uuid().v4();
           final item = RecordingItem(
             id: itemId,
             rawTranscript: transcription,
-            finalText: transcription,
-            presetUsed: 'Raw Voice',
+            finalText: polishedText,
+            presetUsed: intentLabel ?? 'Magic',
             outcomes: [],
             projectId: null,
             createdAt: DateTime.now(),
             editHistory: [],
-            presetId: '',
+            presetId: detectedIntent ?? 'magic',
             contentType: 'voice',
           );
 
@@ -364,11 +400,12 @@ class _RecordingScreenState extends State<RecordingScreen>
             parameters: {
               'document_type': 'voice',
               'source': 'recording',
-              'creation_method': 'voice_direct',
+              'creation_method': 'voice_auto_magic',
+              'detected_intent': detectedIntent ?? 'unknown',
             },
           );
 
-          debugPrint('✅ Saved raw transcript as new item: $itemId');
+          debugPrint('✅ Saved polished item: $itemId (intent=$detectedIntent)');
 
           // Navigate to editor for this new item
           if (mounted) {
@@ -439,10 +476,12 @@ class _RecordingScreenState extends State<RecordingScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
             
             // STT Time Remaining Display
             UsageDisplayCompact(),
@@ -653,6 +692,130 @@ class _RecordingScreenState extends State<RecordingScreen>
             const Spacer(),
             const SizedBox(height: 40),
           ],
+        ),
+      ),
+
+          // ✨ Magic processing overlay — shown after recording stops
+          // while the backend auto-detects intent. ~500-900ms typical.
+          if (_isMagicProcessing)
+            const _MagicShimmerOverlay(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Full-screen shimmer overlay that plays while the Magic preset runs.
+/// Communicates "AI is working its magic" — the bridge between the user
+/// hitting stop and the polished result landing in the editor.
+class _MagicShimmerOverlay extends StatefulWidget {
+  const _MagicShimmerOverlay();
+
+  @override
+  State<_MagicShimmerOverlay> createState() => _MagicShimmerOverlayState();
+}
+
+class _MagicShimmerOverlayState extends State<_MagicShimmerOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: const Color(0xFF0D0D1A).withOpacity(0.96),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Pulsing magic orb
+              AnimatedBuilder(
+                animation: _ctrl,
+                builder: (context, _) {
+                  final t = _ctrl.value;
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      for (var i = 0; i < 3; i++)
+                        Transform.scale(
+                          scale: 1.0 + ((t + i * 0.33) % 1.0) * 0.6,
+                          child: Container(
+                            width: 90,
+                            height: 90,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF7C6AE8).withOpacity(
+                                  0.6 - ((t + i * 0.33) % 1.0) * 0.6,
+                                ),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF7C6AE8), Color(0xFF5B4BC9)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF7C6AE8).withOpacity(0.55),
+                              blurRadius: 32,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome,
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Making it magic...',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Figuring out exactly what you meant',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white.withOpacity(0.5),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

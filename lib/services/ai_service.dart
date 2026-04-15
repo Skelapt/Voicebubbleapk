@@ -7,6 +7,25 @@ import '../models/extracted_outcome.dart';
 import '../models/unstuck_response.dart';
 import '../models/outcome_type.dart';
 
+/// Structured result from the Magic preset.
+/// If the backend is old or the JSON parse fell through, [intent] will
+/// be null and [text] will still hold the polished rewrite.
+class MagicResult {
+  final String text;
+  final String? intent;
+  final String? label;
+  final double? confidence;
+  final List<String> alternatives;
+
+  MagicResult({
+    required this.text,
+    this.intent,
+    this.label,
+    this.confidence,
+    this.alternatives = const [],
+  });
+}
+
 class AIService {
   // Backend URL - Change this based on your setup
   // PRODUCTION: Use your Railway deployment URL
@@ -65,11 +84,44 @@ class AIService {
           'language': languageCode, // Output language preference
         },
       );
-      
+
       return response.data['text'] ?? '';
     } catch (e) {
       print('Rewrite error: $e');
       throw Exception('Failed to rewrite text: $e');
+    }
+  }
+
+  /// Run the Magic preset and return the STRUCTURED response with the
+  /// auto-detected intent. The server returns extra fields alongside
+  /// `text`; if they're missing (old backend, or fallback path) the
+  /// caller still gets a valid MagicResult with just the text.
+  Future<MagicResult> rewriteMagic({
+    required String text,
+    required String languageCode,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '$_backendUrl/api/rewrite/batch',
+        data: {
+          'text': text,
+          'presetId': 'magic',
+          'language': languageCode,
+        },
+      );
+      final data = response.data as Map<String, dynamic>;
+      return MagicResult(
+        text: (data['text'] ?? '').toString(),
+        intent: data['intent'] is String ? data['intent'] as String : null,
+        label: data['label'] is String ? data['label'] as String : null,
+        confidence: (data['confidence'] is num) ? (data['confidence'] as num).toDouble() : null,
+        alternatives: (data['alternatives'] is List)
+            ? (data['alternatives'] as List).whereType<String>().toList()
+            : const <String>[],
+      );
+    } catch (e) {
+      print('Magic rewrite error: $e');
+      throw Exception('Failed to auto-rewrite: $e');
     }
   }
   
