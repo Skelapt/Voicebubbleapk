@@ -1755,25 +1755,25 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
               ),
 
             // First-open bubble — styled like home welcome, one-time only.
-            // Sits above the bottom bar, points down toward Rewrite.
+            // Sits directly above Rewrite (just a tiny lift off the bar).
             if (_showFirstOpenBubble && !widget.readOnly)
               Positioned(
-                left: 20,
-                right: 20,
-                bottom: 130,
+                left: 32,
+                right: 32,
+                bottom: 85,
                 child: _FirstOpenBubble(onDismiss: _dismissFirstOpenBubble),
               ),
 
-            // Continue recording — floats above bottom bar, bottom right (44x44)
+            // Continue recording — SAME size as copy (40x40), aligned directly above it
             if (!widget.readOnly && widget.onContinuePressed != null)
               Positioned(
-                right: 14,
+                right: 12,
                 bottom: 70,
                 child: GestureDetector(
                   onTap: widget.onContinuePressed,
                   child: Container(
-                    width: 44,
-                    height: 44,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: const Color(0xFF1A1A2E),
                       shape: BoxShape.circle,
@@ -1783,14 +1783,14 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.35),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(5),
                       child: Image.asset(
                         'assets/logo.png',
                         fit: BoxFit.contain,
@@ -1871,60 +1871,50 @@ class _FirstOpenBubbleState extends State<_FirstOpenBubble>
         child: GestureDetector(
           onTap: widget.onDismiss,
           child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A2E),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: const Color(0xFF7C6AE8).withOpacity(0.35),
+                color: const Color(0xFF7C6AE8).withOpacity(0.4),
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF7C6AE8).withOpacity(0.22),
-                  blurRadius: 28,
+                  color: const Color(0xFF7C6AE8).withOpacity(0.18),
+                  blurRadius: 18,
                   spreadRadius: 1,
                 ),
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.45),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // White "welcome" line — same weight as home
                 const Text(
                   'Now the magic ✨',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                // Purple "do it" line — same style as home
-                const Text(
-                  'Tap Rewrite to transform your words',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF7C6AE8),
-                    height: 1.2,
                     letterSpacing: -0.2,
                   ),
                 ),
-                const SizedBox(height: 10),
-                // Arrow hint pointing down at the Rewrite button
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: const Color(0xFF7C6AE8).withOpacity(0.85),
-                  size: 28,
+                const SizedBox(height: 1),
+                const Text(
+                  'Tap Rewrite to transform',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF7C6AE8),
+                    letterSpacing: -0.1,
+                  ),
                 ),
               ],
             ),
