@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart';
 import '../providers/app_state_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/refinement_service.dart';
 import '../services/ai_service.dart';
 import '../services/feature_gate.dart';
@@ -437,6 +438,10 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
   late Animation<double> _saveIndicatorAnimation;
   int _wordCount = 0;
   int _characterCount = 0;
+
+  // First-open bubble — shows once, hints that Rewrite = magic
+  static const String _firstOpenBubbleKey = 'editor_first_open_bubble_dismissed';
+  bool _showFirstOpenBubble = false;
   bool _hasUnsavedChanges = false;
   bool _showSaved = false;
   
@@ -491,6 +496,30 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
         });
       }
     }
+
+    _maybeShowFirstOpenBubble();
+  }
+
+  Future<void> _maybeShowFirstOpenBubble() async {
+    if (widget.readOnly) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dismissed = prefs.getBool(_firstOpenBubbleKey) ?? false;
+      if (!dismissed && mounted) {
+        // Small delay so it appears after the editor settles in
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted) setState(() => _showFirstOpenBubble = true);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _dismissFirstOpenBubble() async {
+    if (!_showFirstOpenBubble) return;
+    setState(() => _showFirstOpenBubble = false);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_firstOpenBubbleKey, true);
+    } catch (_) {}
   }
 
   void _initializeController() {
@@ -638,6 +667,9 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
         : _controller.document.toPlainText().trim();
 
     if (textToRewrite.isEmpty) return;
+
+    // Dismiss the first-open hint when user actually engages with Rewrite
+    _dismissFirstOpenBubble();
 
     HapticFeedback.mediumImpact();
 
@@ -1722,6 +1754,16 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
                 ),
               ),
 
+            // First-open bubble — styled like home welcome, one-time only.
+            // Sits above the bottom bar, points down toward Rewrite.
+            if (_showFirstOpenBubble && !widget.readOnly)
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 130,
+                child: _FirstOpenBubble(onDismiss: _dismissFirstOpenBubble),
+              ),
+
             // Continue recording — floats above bottom bar, bottom right (44x44)
             if (!widget.readOnly && widget.onContinuePressed != null)
               Positioned(
@@ -1784,6 +1826,115 @@ class RichTextEditorState extends State<RichTextEditor> with TickerProviderState
 /// Small copy button for the bottom bar — same 40x40 footprint as other
 /// bottom bar icons so the row stays uniform. Shows a brief green check
 /// when tapped, then reverts.
+/// First-open editor bubble. Shows ONCE, ever, above the bottom bar.
+/// Styled to match the home "Hi there / Let's make the first recording"
+/// welcome — same fonts, same purple, same weights. Arrow points down.
+class _FirstOpenBubble extends StatefulWidget {
+  final VoidCallback onDismiss;
+  const _FirstOpenBubble({required this.onDismiss});
+
+  @override
+  State<_FirstOpenBubble> createState() => _FirstOpenBubbleState();
+}
+
+class _FirstOpenBubbleState extends State<_FirstOpenBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _slide,
+        child: GestureDetector(
+          onTap: widget.onDismiss,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A2E),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF7C6AE8).withOpacity(0.35),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF7C6AE8).withOpacity(0.22),
+                  blurRadius: 28,
+                  spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.45),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // White "welcome" line — same weight as home
+                const Text(
+                  'Now the magic ✨',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                // Purple "do it" line — same style as home
+                const Text(
+                  'Tap Rewrite to transform your words',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF7C6AE8),
+                    height: 1.2,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Arrow hint pointing down at the Rewrite button
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: const Color(0xFF7C6AE8).withOpacity(0.85),
+                  size: 28,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _InlineCopyButton extends StatefulWidget {
   final Future<void> Function() onCopy;
   const _InlineCopyButton({required this.onCopy});
@@ -2229,10 +2380,11 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
     );
   }
 
-  /// Voice-only instruction button — stays inline on the sheet.
-  /// Idle: purple mic + "Give AI Instructions" / "Speak what you want changed"
-  /// Recording: red pulsing stop + "Listening..." + live timer
-  /// Loading: spinner + "Rewriting with your instructions..."
+  /// Slim voice-only instruction button — sits at the top of the sheet.
+  /// Same visual weight as the preset rows below (no big purple card).
+  /// Idle: small purple mic + "Give AI Instructions" / "Say it out loud"
+  /// Recording: red stop + "Listening..." + live timer
+  /// Loading: spinner + "Rewriting..."
   Widget _buildInstructionInput() {
     final isRecording = _isRecordingInstruction;
     final isRunning = _loading && _activePresetId == '_custom';
@@ -2241,71 +2393,58 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
         ? const Color(0xFFEF4444)
         : const Color(0xFF7C6AE8);
     final String title = isRunning
-        ? 'Rewriting with your instructions'
+        ? 'Rewriting...'
         : isRecording
             ? 'Listening...'
             : 'Give AI Instructions';
     final String subtitle = isRunning
-        ? 'Hold tight, almost done'
+        ? 'Almost done'
         : isRecording
             ? 'Tap to stop and apply'
-            : 'Speak what you want changed';
+            : 'Say it out loud';
 
     return GestureDetector(
       onTap: isRunning ? null : _handleInstructionsTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              accent.withOpacity(isRecording ? 0.25 : 0.18),
-              accent.withOpacity(0.08),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(14),
+          color: isRecording
+              ? accent.withOpacity(0.10)
+              : Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: accent.withOpacity(isRecording ? 0.7 : 0.4),
+            color: isRecording
+                ? accent.withOpacity(0.55)
+                : Colors.white.withOpacity(0.08),
             width: 1,
           ),
-          boxShadow: isRecording
-              ? [
-                  BoxShadow(
-                    color: accent.withOpacity(0.35),
-                    blurRadius: 16,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           children: [
-            // Mic / stop / spinner on the left
+            // Compact mic / stop / spinner
             Container(
-              width: 40,
-              height: 40,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: accent,
                 shape: BoxShape.circle,
               ),
               child: isRunning
                   ? const Padding(
-                      padding: EdgeInsets.all(10),
+                      padding: EdgeInsets.all(8),
                       child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
+                        strokeWidth: 2,
                         color: Colors.white,
                       ),
                     )
                   : Icon(
                       isRecording ? Icons.stop_rounded : Icons.mic_rounded,
                       color: Colors.white,
-                      size: 22,
+                      size: 18,
                     ),
             ),
-            const SizedBox(width: 14),
-            // Bold statement on the right
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2316,17 +2455,16 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
                     title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.55),
-                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.45),
+                      fontSize: 11,
                     ),
                   ),
                 ],
@@ -2335,16 +2473,16 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
             // Timer while recording
             if (isRecording)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   _formatRecordingTime(),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                     fontFeatures: [FontFeature.tabularFigures()],
                   ),
