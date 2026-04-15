@@ -2314,6 +2314,38 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
               child: _buildInstructionInput(),
             ),
 
+            // "Or choose an AI preset" divider label
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: Colors.white.withOpacity(0.08),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                      'Or choose an AI preset',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.45),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: Colors.white.withOpacity(0.08),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             // Preset list
             Expanded(
               child: SingleChildScrollView(
@@ -2389,40 +2421,26 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
     final isRecording = _isRecordingInstruction;
     final isRunning = _loading && _activePresetId == '_custom';
 
-    final Color accent = isRecording
-        ? const Color(0xFFEF4444)
-        : const Color(0xFF7C6AE8);
-    final String title = isRunning
+    const purple = Color(0xFF7C6AE8);
+    final Color accent = isRecording ? const Color(0xFFEF4444) : purple;
+    final String label = isRunning
         ? 'Rewriting...'
         : isRecording
-            ? 'Listening...'
-            : 'Give AI Instructions';
-    final String subtitle = isRunning
-        ? 'Almost done'
-        : isRecording
-            ? 'Tap to stop and apply'
-            : 'Say it out loud';
+            ? 'Listening... tap to stop'
+            : 'Give AI Custom Instruction';
 
     return GestureDetector(
       onTap: isRunning ? null : _handleInstructionsTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isRecording
-              ? accent.withOpacity(0.10)
-              : Colors.white.withOpacity(0.04),
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isRecording
-                ? accent.withOpacity(0.55)
-                : Colors.white.withOpacity(0.08),
-            width: 1,
-          ),
+          border: Border.all(color: accent, width: 1.2),
         ),
         child: Row(
           children: [
-            // Compact mic / stop / spinner
             Container(
               width: 32,
               height: 32,
@@ -2446,31 +2464,15 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.45),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-            // Timer while recording
             if (isRecording)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
