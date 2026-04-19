@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -55,6 +56,10 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
   late final ConfettiController _confettiController;
   bool _showUnlockBanner = false;
 
+  // Undo chip — one-shot, 10s lifetime, reverts AI rewrite to raw transcript
+  bool _showUndoChip = false;
+  Timer? _undoChipTimer;
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +67,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
     _titleController = TextEditingController();
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
     _maybeCelebrateFirstRecording();
+    _maybeShowUndoChip();
   }
 
   Future<void> _maybeCelebrateFirstRecording() async {
@@ -84,10 +90,72 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
     } catch (_) {}
   }
 
+  /// Show a one-time "Undo" chip for 10 seconds the first time the user
+  /// lands on a voice recording whose AI rewrite differs from the raw
+  /// transcript. Tapping restores the raw text.
+  Future<void> _maybeShowUndoChip() async {
+    try {
+      // Wait one frame so Provider is accessible and the editor has built
+      await Future.delayed(const Duration(milliseconds: 120));
+      if (!mounted) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final seenKey = 'undo_chip_seen_${widget.recordingId}';
+      if (prefs.getBool(seenKey) ?? false) return;
+
+      final appState = context.read<AppStateProvider>();
+      final item = appState.allRecordingItems.firstWhere(
+        (r) => r.id == widget.recordingId,
+        orElse: () => RecordingItem(
+          id: widget.recordingId,
+          rawTranscript: '',
+          finalText: '',
+          presetUsed: '',
+          outcomes: const [],
+          projectId: null,
+          createdAt: DateTime.now(),
+          editHistory: const [],
+          presetId: '',
+          tags: const [],
+          contentType: 'text',
+        ),
+      );
+
+      final isVoice = item.contentType == 'voice';
+      final hasRewrite = item.rawTranscript.trim().isNotEmpty &&
+          item.rawTranscript.trim() != item.finalText.trim();
+      if (!isVoice || !hasRewrite) return;
+
+      await prefs.setBool(seenKey, true);
+      if (!mounted) return;
+      setState(() => _showUndoChip = true);
+      _undoChipTimer = Timer(const Duration(seconds: 10), () {
+        if (mounted) setState(() => _showUndoChip = false);
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _handleUndoRewrite(
+      AppStateProvider appState, RecordingItem item) async {
+    _undoChipTimer?.cancel();
+    HapticFeedback.lightImpact();
+    final restored = item.copyWith(
+      finalText: item.rawTranscript,
+      clearFormattedContent: true,
+    );
+    await appState.updateRecording(restored);
+    if (!mounted) return;
+    setState(() {
+      _showUndoChip = false;
+      _editorRebuildKey++;
+    });
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
     _confettiController.dispose();
+    _undoChipTimer?.cancel();
     super.dispose();
   }
 
@@ -316,6 +384,20 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                     left: 24,
                     right: 24,
                     child: _UnlockBanner(),
+                  ),
+
+                // ↩︎ Undo chip — one-shot, 10s lifetime. Reverts AI rewrite
+                // so user can reach for other rewrite options on the raw text.
+                if (_showUndoChip)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 110,
+                    child: Center(
+                      child: _UndoChip(
+                        onTap: () => _handleUndoRewrite(appState, item),
+                      ),
+                    ),
                   ),
               ], // ← End of Stack children
             ); // ← End of Stack
@@ -1046,6 +1128,90 @@ class _UnlockBannerState extends State<_UnlockBanner>
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small "Undo" chip shown briefly after a voice rewrite — tapping reverts
+/// the polished output back to the raw transcript so the user can reach
+/// for a different rewrite preset.
+class _UndoChip extends StatefulWidget {
+  final VoidCallback onTap;
+  const _UndoChip({required this.onTap});
+
+  @override
+  State<_UndoChip> createState() => _UndoChipState();
+}
+
+class _UndoChipState extends State<_UndoChip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _slide,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A2E),
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.14),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.undo, color: Colors.white, size: 16),
+                SizedBox(width: 6),
+                Text(
+                  'Undo rewrite',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
