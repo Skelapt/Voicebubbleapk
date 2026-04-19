@@ -17,8 +17,9 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
 
   bool _isPro = false;
   int _secondsUsed = 0;
-  int _totalLimit = 300;
+  int _totalLimit = 0;
   bool _hasReviewBonus = false;
+  bool _hasOnboardingBonus = false;
   bool _isLoading = true;
 
   @override
@@ -32,12 +33,14 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
     final secondsUsed = await _usageService.getSecondsUsed();
     final totalLimit = await _usageService.getTotalLimit(isPro: isPro);
     final hasReviewBonus = await _usageService.hasClaimedReviewBonus();
+    final hasOnboardingBonus = await _usageService.hasClaimedOnboardingBonus();
 
     setState(() {
       _isPro = isPro;
       _secondsUsed = secondsUsed;
       _totalLimit = totalLimit;
       _hasReviewBonus = hasReviewBonus;
+      _hasOnboardingBonus = hasOnboardingBonus;
       _isLoading = false;
     });
   }
@@ -70,9 +73,11 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
     }
 
     final remaining = (_totalLimit - _secondsUsed).clamp(0, _totalLimit);
-    final percentage = _isPro ? 0.0 : (_secondsUsed / _totalLimit); // Pro = always empty bar (nothing used up)
+    final percentage = _isPro || _totalLimit == 0
+        ? 0.0
+        : (_secondsUsed / _totalLimit); // Pro / pre-bonus = empty bar
     final isLow = _isPro ? false : percentage > 0.8;
-    final isExhausted = _isPro ? false : remaining <= 0;
+    final isExhausted = _isPro || !_hasOnboardingBonus ? false : remaining <= 0;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -264,7 +269,9 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
                   child: Text(
                     _isPro
                         ? 'Pro: Unlimited recordings & AI'
-                        : 'Free: ${_hasReviewBonus ? '6' : '5'} minutes of STT & AI per month',
+                        : _hasOnboardingBonus
+                            ? 'Pro: ${(_totalLimit / 60).floor()} minutes unlocked this month'
+                            : 'Record your first message to unlock 10 min of Pro',
                     style: TextStyle(
                       color: secondaryTextColor,
                       fontSize: 12,

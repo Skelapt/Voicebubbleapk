@@ -695,27 +695,28 @@ class _RecordingScreenState extends State<RecordingScreen>
         ),
       ),
 
-          // ✨ Magic processing overlay — shown after recording stops
-          // while the backend auto-detects intent. ~500-900ms typical.
+          // Skeleton loading overlay — shown after recording stops while
+          // the backend auto-detects intent (~500-900ms). Mimics the
+          // output page layout so the transition feels seamless.
           if (_isMagicProcessing)
-            const _MagicShimmerOverlay(),
+            const _OutputSkeletonOverlay(),
         ],
       ),
     );
   }
 }
 
-/// Full-screen shimmer overlay that plays while the Magic preset runs.
-/// Communicates "AI is working its magic" — the bridge between the user
-/// hitting stop and the polished result landing in the editor.
-class _MagicShimmerOverlay extends StatefulWidget {
-  const _MagicShimmerOverlay();
+/// Full-screen skeleton overlay that previews the output page layout
+/// (title bar + tag pill + text lines) with a gentle left→right shimmer.
+/// Replaces the "Making it magic..." overlay for a smoother feel.
+class _OutputSkeletonOverlay extends StatefulWidget {
+  const _OutputSkeletonOverlay();
 
   @override
-  State<_MagicShimmerOverlay> createState() => _MagicShimmerOverlayState();
+  State<_OutputSkeletonOverlay> createState() => _OutputSkeletonOverlayState();
 }
 
-class _MagicShimmerOverlayState extends State<_MagicShimmerOverlay>
+class _OutputSkeletonOverlayState extends State<_OutputSkeletonOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
@@ -724,7 +725,7 @@ class _MagicShimmerOverlayState extends State<_MagicShimmerOverlay>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1200),
     )..repeat();
   }
 
@@ -738,86 +739,100 @@ class _MagicShimmerOverlayState extends State<_MagicShimmerOverlay>
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: Container(
-        color: const Color(0xFF0D0D1A).withOpacity(0.96),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Pulsing magic orb
-              AnimatedBuilder(
-                animation: _ctrl,
-                builder: (context, _) {
-                  final t = _ctrl.value;
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      for (var i = 0; i < 3; i++)
-                        Transform.scale(
-                          scale: 1.0 + ((t + i * 0.33) % 1.0) * 0.6,
-                          child: Container(
-                            width: 90,
-                            height: 90,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFF7C6AE8).withOpacity(
-                                  0.6 - ((t + i * 0.33) % 1.0) * 0.6,
-                                ),
-                                width: 1.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF7C6AE8), Color(0xFF5B4BC9)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF7C6AE8).withOpacity(0.55),
-                              blurRadius: 32,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.auto_awesome,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 28),
-              const Text(
-                'Making it magic...',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: -0.3,
+        color: const Color(0xFF0D0D1A),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header row placeholder (back arrow + date + action dots)
+                Row(
+                  children: [
+                    _Block(width: 22, height: 22, radius: 6, ctrl: _ctrl),
+                    const Spacer(),
+                    _Block(width: 110, height: 14, radius: 8, ctrl: _ctrl),
+                    const Spacer(),
+                    _Block(width: 36, height: 36, radius: 18, ctrl: _ctrl),
+                    const SizedBox(width: 8),
+                    _Block(width: 22, height: 22, radius: 6, ctrl: _ctrl),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Figuring out exactly what you meant',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white.withOpacity(0.5),
-                ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                // Title placeholder
+                _Block(width: 260, height: 28, radius: 8, ctrl: _ctrl),
+                const SizedBox(height: 10),
+                _Block(width: 180, height: 28, radius: 8, ctrl: _ctrl),
+                const SizedBox(height: 16),
+                // Tag pill placeholder
+                _Block(width: 70, height: 26, radius: 6, ctrl: _ctrl),
+                const SizedBox(height: 28),
+                // Body text line placeholders — varying widths
+                _Block(width: double.infinity, height: 14, radius: 6, ctrl: _ctrl),
+                const SizedBox(height: 12),
+                _Block(width: double.infinity, height: 14, radius: 6, ctrl: _ctrl),
+                const SizedBox(height: 12),
+                _Block(width: 280, height: 14, radius: 6, ctrl: _ctrl),
+                const SizedBox(height: 20),
+                _Block(width: double.infinity, height: 14, radius: 6, ctrl: _ctrl),
+                const SizedBox(height: 12),
+                _Block(width: 220, height: 14, radius: 6, ctrl: _ctrl),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Single skeleton block with a sweeping shimmer gradient.
+class _Block extends StatelessWidget {
+  final double width;
+  final double height;
+  final double radius;
+  final AnimationController ctrl;
+
+  const _Block({
+    required this.width,
+    required this.height,
+    required this.radius,
+    required this.ctrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: ctrl,
+      builder: (context, _) {
+        final t = ctrl.value;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+            ),
+            child: ShaderMask(
+              blendMode: BlendMode.srcATop,
+              shaderCallback: (rect) {
+                return LinearGradient(
+                  begin: Alignment(-1.0 + 2 * t, 0),
+                  end: Alignment(0.0 + 2 * t, 0),
+                  colors: [
+                    Colors.white.withOpacity(0.0),
+                    Colors.white.withOpacity(0.12),
+                    Colors.white.withOpacity(0.0),
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ).createShader(rect);
+              },
+              child: Container(color: Colors.white),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -911,30 +911,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
                         // Editable Result Box
                         if (_isLoading)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  primaryColor.withOpacity(0.1),
-                                  const Color(0xFF2563EB).withOpacity(0.1),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: primaryColor.withOpacity(0.3),
-                                width: 2,
-                              ),
-                            ),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: primaryColor,
-                              ),
-                            ),
-                          )
+                          const _SkeletonBlocks()
                         else if (_error != null)
                           Container(
                             width: double.infinity,
@@ -1371,6 +1348,100 @@ class _InstructionsNudgeGlowState extends State<_InstructionsNudgeGlow>
         );
       },
       child: widget.child,
+    );
+  }
+}
+
+/// Skeleton placeholder block rows with a left→right shimmer sweep.
+/// Shown while the AI rewrite is in flight — replaces the old spinner.
+class _SkeletonBlocks extends StatefulWidget {
+  const _SkeletonBlocks();
+
+  @override
+  State<_SkeletonBlocks> createState() => _SkeletonBlocksState();
+}
+
+class _SkeletonBlocksState extends State<_SkeletonBlocks>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _bar({required double width, double height = 14, double radius = 6}) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) {
+        final t = _ctrl.value;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.06),
+            ),
+            child: ShaderMask(
+              blendMode: BlendMode.srcATop,
+              shaderCallback: (rect) {
+                return LinearGradient(
+                  begin: Alignment(-1.0 + 2 * t, 0),
+                  end: Alignment(0.0 + 2 * t, 0),
+                  colors: [
+                    Colors.white.withOpacity(0.0),
+                    Colors.white.withOpacity(0.12),
+                    Colors.white.withOpacity(0.0),
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ).createShader(rect);
+              },
+              child: Container(color: Colors.white),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.08),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _bar(width: double.infinity),
+          const SizedBox(height: 12),
+          _bar(width: double.infinity),
+          const SizedBox(height: 12),
+          _bar(width: 220),
+          const SizedBox(height: 20),
+          _bar(width: double.infinity),
+          const SizedBox(height: 12),
+          _bar(width: 180),
+        ],
+      ),
     );
   }
 }
