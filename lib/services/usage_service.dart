@@ -1,15 +1,15 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
 /// Tracks STT and AI usage for free/pro limits
-/// FREE: 0 base — user must record their first message to unlock 10 min of Pro.
-/// Bonuses: 10 min onboarding (first recording) + 1 min review bonus.
+/// FREE: 10 min standard every month (no button required).
+/// Bonuses: 1 min review bonus.
 /// PRO: Unlimited
 class UsageService {
   static const String _boxName = 'usage_data';
-  static const int freeSecondsLimit = 0;        // No base — unlock on first recording
+  static const int freeSecondsLimit = 600;      // 10 minutes standard for every free user
   static const int proSecondsLimit = 999999;    // Unlimited for pro
   static const int reviewBonusSeconds = 60;     // 1 minute bonus for review
-  static const int onboardingBonusSeconds = 600; // 10 minutes Pro unlocked on first recording
+  static const int onboardingBonusSeconds = 0;  // Deprecated: 10 min is now standard (see freeSecondsLimit)
 
   // Singleton
   static final UsageService _instance = UsageService._internal();

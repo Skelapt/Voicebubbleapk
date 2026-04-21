@@ -498,7 +498,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Voice to AI-powered text',
+                      'Emails, texts & replies — in seconds',
                       style: TextStyle(
                         fontSize: 13,
                         color: secondaryTextColor,

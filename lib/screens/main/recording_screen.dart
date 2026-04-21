@@ -150,7 +150,7 @@ class _RecordingScreenState extends State<RecordingScreen>
       _remainingSeconds = await usageService.getRemainingSeconds(isPro: _isPro);
       if (mounted) setState(() {});
     } catch (e) {
-      _remainingSeconds = 300;
+      _remainingSeconds = 600;
     }
   }
 
@@ -160,7 +160,7 @@ class _RecordingScreenState extends State<RecordingScreen>
         SnackBar(
           content: Text(_isPro
             ? 'Monthly limit reached. Recording stopped.'
-            : 'Free limit reached (5 min). Upgrade for more!'),
+            : 'Free limit reached (10 min). Upgrade for more!'),
           backgroundColor: const Color(0xFFF59E0B),
           duration: const Duration(seconds: 4),
         ),

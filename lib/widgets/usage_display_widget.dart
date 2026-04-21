@@ -19,7 +19,6 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
   int _secondsUsed = 0;
   int _totalLimit = 0;
   bool _hasReviewBonus = false;
-  bool _hasOnboardingBonus = false;
   bool _isLoading = true;
 
   @override
@@ -33,14 +32,12 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
     final secondsUsed = await _usageService.getSecondsUsed();
     final totalLimit = await _usageService.getTotalLimit(isPro: isPro);
     final hasReviewBonus = await _usageService.hasClaimedReviewBonus();
-    final hasOnboardingBonus = await _usageService.hasClaimedOnboardingBonus();
 
     setState(() {
       _isPro = isPro;
       _secondsUsed = secondsUsed;
       _totalLimit = totalLimit;
       _hasReviewBonus = hasReviewBonus;
-      _hasOnboardingBonus = hasOnboardingBonus;
       _isLoading = false;
     });
   }
@@ -75,9 +72,9 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
     final remaining = (_totalLimit - _secondsUsed).clamp(0, _totalLimit);
     final percentage = _isPro || _totalLimit == 0
         ? 0.0
-        : (_secondsUsed / _totalLimit); // Pro / pre-bonus = empty bar
+        : (_secondsUsed / _totalLimit);
     final isLow = _isPro ? false : percentage > 0.8;
-    final isExhausted = _isPro || !_hasOnboardingBonus ? false : remaining <= 0;
+    final isExhausted = _isPro ? false : remaining <= 0;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -269,9 +266,7 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
                   child: Text(
                     _isPro
                         ? 'Pro: Unlimited recordings & AI'
-                        : _hasOnboardingBonus
-                            ? 'Pro: ${(_totalLimit / 60).floor()} minutes unlocked this month'
-                            : 'Record your first message to unlock 10 min of Pro',
+                        : '${(_totalLimit / 60).floor()} minutes free this month',
                     style: TextStyle(
                       color: secondaryTextColor,
                       fontSize: 12,
