@@ -2208,7 +2208,7 @@ class _RewritePresetSheetState extends State<_RewritePresetSheet> {
   Future<void> _handlePresetTap(Preset preset) async {
     if (_loading) return;
 
-    // Use same gate as recording — 5 min free, then upgrade
+    // Use same gate as recording — 10 min free, then upgrade
     final canUse = await FeatureGate.canUseSTT(context);
     if (!canUse) return;
 

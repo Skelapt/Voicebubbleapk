@@ -1568,7 +1568,7 @@ class _EmptyStateDeliciousState extends State<_EmptyStateDelicious>
             ),
           ),
           child: const Text(
-            '🎁  Unlock 10 minutes of Pro after your first recording',
+            '🎁  10 free minutes of Pro — already yours',
             style: TextStyle(
               color: Colors.white,
               fontSize: 12,
