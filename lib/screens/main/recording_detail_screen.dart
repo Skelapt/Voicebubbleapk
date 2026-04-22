@@ -388,11 +388,14 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
 
                 // ↩︎ Undo chip — one-shot, 10s lifetime. Reverts AI rewrite
                 // so user can reach for other rewrite options on the raw text.
+                // Sits above the "Now the magic" first-open card (bottom 85,
+                // ~60px tall → top edge at ~145) and the Continue / Rewrite
+                // bottom bar so it never covers anything.
                 if (_showUndoChip)
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: 110,
+                    bottom: 170,
                     child: Center(
                       child: _UndoChip(
                         onTap: () => _handleUndoRewrite(appState, item),
