@@ -46,9 +46,10 @@ dependencies:
   # RevenueCat — observer mode alongside in_app_purchase so we keep the
   # existing product IDs and purchase flow, and RevenueCat just becomes
   # the truth source for Pro entitlement + restore + dashboard analytics.
-  # Min version 7.x: earlier 6.x releases still reference the removed
-  # Flutter v1 embedding and fail to compile on modern Flutter.
-  purchases_flutter: ^7.4.0
+  # v10 — earlier 6.x releases still reference removed Flutter v1 embedding
+  # and 7.x isn't published. 8+ replaced observerMode with
+  # purchasesAreCompletedBy; main.dart uses that API.
+  purchases_flutter: ^10.0.1
 
   # In-App Review
   in_app_review: ^2.0.8

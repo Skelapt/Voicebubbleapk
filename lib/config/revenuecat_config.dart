@@ -15,11 +15,11 @@
 /// `voicebubble_pro_yearly`.
 class RevenueCatConfig {
   static const String androidApiKey = 'goog_BobkJQSbHxxcTRbiICAOBJMsBiG';
-  static const String iosApiKey = 'PASTE_YOUR_IOS_KEY_HERE';
+  static const String iosApiKey = 'appl_EMVlHqPhOuFbAKNhJfhoDBbZayV';
 
   /// Entitlement identifier in the RevenueCat dashboard. Case-sensitive.
-  /// Matches the dashboard entitlement `Pro` (capital P).
-  static const String proEntitlement = 'Pro';
+  /// Matches the dashboard entitlement `pro` (lowercase).
+  static const String proEntitlement = 'pro';
 
   static bool get isConfiguredForAndroid =>
       androidApiKey.isNotEmpty && !androidApiKey.startsWith('PASTE_');
