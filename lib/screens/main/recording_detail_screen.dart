@@ -90,7 +90,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
     } catch (_) {}
   }
 
-  /// Show a one-time "Undo" chip for 10 seconds the first time the user
+  /// Show a one-time "Undo" chip for 20 seconds the first time the user
   /// lands on a voice recording whose AI rewrite differs from the raw
   /// transcript. Tapping restores the raw text.
   Future<void> _maybeShowUndoChip() async {
@@ -129,7 +129,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
       await prefs.setBool(seenKey, true);
       if (!mounted) return;
       setState(() => _showUndoChip = true);
-      _undoChipTimer = Timer(const Duration(seconds: 10), () {
+      _undoChipTimer = Timer(const Duration(seconds: 20), () {
         if (mounted) setState(() => _showUndoChip = false);
       });
     } catch (_) {}
