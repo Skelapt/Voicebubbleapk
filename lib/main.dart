@@ -77,7 +77,7 @@ Future<void> _initRevenueCat() async {
     // PurchasesAreCompletedByMyApp = the app keeps handling Play / StoreKit
     // via in_app_purchase; RevenueCat just observes and tracks entitlements.
     final config = PurchasesConfiguration(apiKey)
-      ..purchasesAreCompletedBy = const PurchasesAreCompletedByMyApp(
+      ..purchasesAreCompletedBy = PurchasesAreCompletedByMyApp(
         storeKitVersion: StoreKitVersion.defaultVersion,
       );
     await Purchases.configure(config);
