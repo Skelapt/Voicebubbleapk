@@ -73,7 +73,13 @@ Future<void> _initRevenueCat() async {
     }
 
     await Purchases.setLogLevel(LogLevel.info);
-    final config = PurchasesConfiguration(apiKey)..observerMode = true;
+    // v8+ API: observerMode was replaced by purchasesAreCompletedBy.
+    // PurchasesAreCompletedByMyApp = the app keeps handling Play / StoreKit
+    // via in_app_purchase; RevenueCat just observes and tracks entitlements.
+    final config = PurchasesConfiguration(apiKey)
+      ..purchasesAreCompletedBy = const PurchasesAreCompletedByMyApp(
+        storeKitVersion: StoreKitVersion.defaultVersion,
+      );
     await Purchases.configure(config);
     debugPrint('✅ RevenueCat configured (observer mode)');
   } catch (e) {
