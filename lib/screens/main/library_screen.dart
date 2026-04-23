@@ -54,6 +54,10 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
 
   // Overlay state (from HomeScreen)
   bool _overlayEnabled = false;
+  // True between tapping "Activate" and the app resuming from the system
+  // overlay-permission screen. Lets us auto-start the bubble the moment the
+  // user comes back, so they don't have to tap Activate a second time.
+  bool _pendingActivation = false;
 
   @override
   void initState() {
@@ -81,10 +85,12 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
 
       debugPrint('Service active: $isActive, Permission granted: $hasPermission');
 
-      if (hasPermission && !isActive && _overlayEnabled) {
+      if (hasPermission && !isActive && _pendingActivation) {
         debugPrint('🚀 Auto-starting service after permission grant...');
+        _pendingActivation = false;
         final started = await NativeOverlayService.showOverlay();
         if (started && mounted) {
+          AnalyticsService().logOverlayActivated(isEnabled: true);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('✓ Bubble activated! Look on the left side'),
@@ -148,7 +154,7 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                 '1. Find "VoiceBubble" in the list\n'
                 '2. Turn ON "Allow display over other apps"\n'
                 '3. Press back to return here\n\n'
-                'Tap OK to open settings now.',
+                'The bubble will turn on automatically when you come back.',
               ),
               actions: [
                 TextButton(
@@ -160,33 +166,11 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
           );
         }
 
+        _pendingActivation = true;
         await NativeOverlayService.requestPermission();
-
-        await Future.delayed(const Duration(seconds: 1));
-
-        final permissionGranted = await NativeOverlayService.checkPermission();
-        debugPrint('Permission granted: $permissionGranted');
-
-        if (permissionGranted && mounted) {
-          debugPrint('🚀 Starting overlay service...');
-          final started = await NativeOverlayService.showOverlay();
-          debugPrint('Service started: $started');
-
-          setState(() {
-            _overlayEnabled = started;
-          });
-
-          if (started && mounted) {
-            AnalyticsService().logOverlayActivated(isEnabled: true);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✓ Bubble activated! Close and reopen app to refresh status.'),
-                backgroundColor: Color(0xFF10B981),
-                duration: Duration(seconds: 4),
-              ),
-            );
-          }
-        }
+        // The resume handler takes it from here — it'll detect the granted
+        // permission and start the service so the user doesn't have to tap
+        // Activate a second time.
       } else {
         debugPrint('🚀 Starting overlay service (permission already granted)...');
         final started = await NativeOverlayService.showOverlay();
@@ -200,9 +184,9 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
           AnalyticsService().logOverlayActivated(isEnabled: true);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✓ Bubble activated! Close and reopen app to refresh status.'),
+              content: Text('✓ Bubble activated! Look on the left side'),
               backgroundColor: Color(0xFF10B981),
-              duration: Duration(seconds: 4),
+              duration: Duration(seconds: 3),
             ),
           );
         } else if (mounted) {
