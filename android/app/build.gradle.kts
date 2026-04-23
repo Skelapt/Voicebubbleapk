@@ -30,7 +30,7 @@ android {
         applicationId = "com.voicebubble.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 67
+        versionCode = 68
         versionName = "4.3.2"
 
         ndk {

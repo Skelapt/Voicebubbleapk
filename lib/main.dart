@@ -1,12 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'config/revenuecat_config.dart';
 import 'providers/app_state_provider.dart';
 import 'providers/theme_provider.dart';
 import 'services/subscription_service.dart';
@@ -40,14 +36,6 @@ void main() async {
   await ReminderManager().initialize();
   debugPrint('✅ Reminder system initialized');
 
-  // Initialize RevenueCat (observer mode) in the BACKGROUND — do NOT await.
-  // If RC's network init hangs or the SDK stalls, the splash would never
-  // hand off to Flutter and the app would appear frozen. Any later call
-  // to Purchases.* that fires before RC finishes configuring is caught
-  // by the fallback in SubscriptionService.hasActiveSubscription().
-  // ignore: discarded_futures
-  _initRevenueCat();
-
   // Initialize In-App Purchase system
   await SubscriptionService().initialize();
   debugPrint('✅ Subscription service initialized');
@@ -57,42 +45,6 @@ void main() async {
   debugPrint('✅ Share handler initialized');
 
   runApp(const MyApp());
-}
-
-Future<void> _initRevenueCat() async {
-  try {
-    String? apiKey;
-    if (Platform.isAndroid && RevenueCatConfig.isConfiguredForAndroid) {
-      apiKey = RevenueCatConfig.androidApiKey;
-    } else if (Platform.isIOS && RevenueCatConfig.isConfiguredForIos) {
-      apiKey = RevenueCatConfig.iosApiKey;
-    }
-
-    if (apiKey == null) {
-      debugPrint(
-          '⚠️ RevenueCat not configured — paste your API key into lib/config/revenuecat_config.dart');
-      return;
-    }
-
-    await Purchases.setLogLevel(LogLevel.info);
-    // v8+ API: observerMode was replaced by purchasesAreCompletedBy.
-    // PurchasesAreCompletedByMyApp = the app keeps handling Play / StoreKit
-    // via in_app_purchase; RevenueCat just observes and tracks entitlements.
-    final config = PurchasesConfiguration(apiKey)
-      ..purchasesAreCompletedBy = PurchasesAreCompletedByMyApp(
-        storeKitVersion: StoreKitVersion.defaultVersion,
-      );
-    await Purchases.configure(config).timeout(
-      const Duration(seconds: 8),
-      onTimeout: () {
-        debugPrint('⚠️ RevenueCat configure timed out — continuing anyway');
-      },
-    );
-    debugPrint('✅ RevenueCat configured (observer mode)');
-  } catch (e) {
-    // Never block app start on RC init — fall through to local-cache fallback.
-    debugPrint('❌ RevenueCat init failed: $e');
-  }
 }
 
 class MyApp extends StatefulWidget {

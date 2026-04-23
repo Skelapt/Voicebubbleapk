@@ -2,14 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 // Firestore removed - subscription is now pure local
 // import 'package:cloud_firestore/cloud_firestore.dart';
 // import 'package:firebase_auth/firebase_auth.dart';
-import '../config/revenuecat_config.dart';
 import 'notification_service.dart';
 
 class SubscriptionService {
@@ -188,23 +186,6 @@ class SubscriptionService {
       debugPrint('❌ Error restoring purchases: $e');
       rethrow;
     }
-
-    // Nudge RevenueCat to pick up any restored Play subscription so the
-    // entitlement check returns true immediately after the call.
-    if (_revenueCatAvailable()) {
-      try {
-        await Purchases.restorePurchases();
-        debugPrint('✅ RevenueCat restorePurchases synced');
-      } catch (e) {
-        debugPrint('⚠️ RevenueCat restore failed (non-fatal): $e');
-      }
-    }
-  }
-
-  bool _revenueCatAvailable() {
-    if (Platform.isAndroid) return RevenueCatConfig.isConfiguredForAndroid;
-    if (Platform.isIOS) return RevenueCatConfig.isConfiguredForIos;
-    return false;
   }
 
   /// Handle purchase updates from the store
@@ -310,18 +291,6 @@ class SubscriptionService {
     } catch (e) {
       debugPrint('❌ Error saving subscription locally: $e');
     }
-
-    // Tell RevenueCat about the new purchase so its entitlement view is
-    // up-to-date right away (observer mode — the in_app_purchase plugin
-    // handled the transaction, RC just records the result).
-    if (_revenueCatAvailable()) {
-      try {
-        await Purchases.syncPurchases();
-        debugPrint('✅ RevenueCat syncPurchases completed');
-      } catch (e) {
-        debugPrint('⚠️ RevenueCat sync failed (non-fatal): $e');
-      }
-    }
   }
 
   /// Alias for feature gates: Pro = has active subscription
@@ -329,39 +298,8 @@ class SubscriptionService {
     return await hasActiveSubscription();
   }
 
-  /// Check if user has active subscription.
-  /// Truth source: RevenueCat entitlement `RevenueCatConfig.proEntitlement`.
-  /// Falls back to the local SharedPreferences cache when RC is unreachable
-  /// or not yet configured, so offline users / pre-RC-setup users keep their
-  /// existing Pro state.
+  /// Check if user has active subscription (pure local - no Firestore)
   Future<bool> hasActiveSubscription() async {
-    if (_revenueCatAvailable()) {
-      try {
-        final customerInfo = await Purchases.getCustomerInfo();
-        final entitlement =
-            customerInfo.entitlements.active[RevenueCatConfig.proEntitlement];
-        final isPro = entitlement != null;
-
-        // Keep the local cache in sync so offline reads still return the
-        // right answer next time.
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool(_keyLocalIsPro, isPro);
-          if (isPro && entitlement.expirationDate != null) {
-            await prefs.setString(
-                _keyLocalExpiryDate, entitlement.expirationDate!);
-          }
-        } catch (_) {}
-
-        debugPrint('🔍 RC entitlement active: $isPro');
-        return isPro;
-      } catch (e) {
-        debugPrint(
-            '⚠️ RC entitlement check failed, falling back to local cache: $e');
-      }
-    }
-
-    // Local-cache fallback (RC not configured yet or offline).
     try {
       final prefs = await SharedPreferences.getInstance();
       final isPro = prefs.getBool(_keyLocalIsPro) ?? false;
