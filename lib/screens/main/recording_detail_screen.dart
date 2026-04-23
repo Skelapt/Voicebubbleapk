@@ -90,7 +90,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
     } catch (_) {}
   }
 
-  /// Show a one-time "Undo" chip for 10 seconds the first time the user
+  /// Show a one-time "Undo" chip for 20 seconds the first time the user
   /// lands on a voice recording whose AI rewrite differs from the raw
   /// transcript. Tapping restores the raw text.
   Future<void> _maybeShowUndoChip() async {
@@ -129,7 +129,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
       await prefs.setBool(seenKey, true);
       if (!mounted) return;
       setState(() => _showUndoChip = true);
-      _undoChipTimer = Timer(const Duration(seconds: 10), () {
+      _undoChipTimer = Timer(const Duration(seconds: 20), () {
         if (mounted) setState(() => _showUndoChip = false);
       });
     } catch (_) {}
@@ -386,16 +386,16 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
                     child: _UnlockBanner(),
                   ),
 
-                // ↩︎ Undo chip — one-shot, 10s lifetime. Reverts AI rewrite
+                // ↩︎ Undo chip — one-shot, 20s lifetime. Reverts AI rewrite
                 // so user can reach for other rewrite options on the raw text.
-                // Sits above the "Now the magic" first-open card (bottom 85,
+                // Sits above the "More magic" first-open card (bottom 85,
                 // ~60px tall → top edge at ~145) and the Continue / Rewrite
                 // bottom bar so it never covers anything.
                 if (_showUndoChip)
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: 170,
+                    bottom: 200,
                     child: Center(
                       child: _UndoChip(
                         onTap: () => _handleUndoRewrite(appState, item),

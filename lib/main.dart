@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'config/revenuecat_config.dart';
 import 'providers/app_state_provider.dart';
 import 'providers/theme_provider.dart';
 import 'services/subscription_service.dart';
@@ -35,7 +39,13 @@ void main() async {
   // Initialize reminder system
   await ReminderManager().initialize();
   debugPrint('✅ Reminder system initialized');
-  
+
+  // Initialize RevenueCat (observer mode). Sits alongside in_app_purchase
+  // so product IDs / purchase flow stay unchanged — RC becomes the truth
+  // source for Pro entitlement + restore + dashboard analytics. Skips
+  // silently until you paste the API key in lib/config/revenuecat_config.dart.
+  await _initRevenueCat();
+
   // Initialize In-App Purchase system
   await SubscriptionService().initialize();
   debugPrint('✅ Subscription service initialized');
@@ -45,6 +55,31 @@ void main() async {
   debugPrint('✅ Share handler initialized');
 
   runApp(const MyApp());
+}
+
+Future<void> _initRevenueCat() async {
+  try {
+    String? apiKey;
+    if (Platform.isAndroid && RevenueCatConfig.isConfiguredForAndroid) {
+      apiKey = RevenueCatConfig.androidApiKey;
+    } else if (Platform.isIOS && RevenueCatConfig.isConfiguredForIos) {
+      apiKey = RevenueCatConfig.iosApiKey;
+    }
+
+    if (apiKey == null) {
+      debugPrint(
+          '⚠️ RevenueCat not configured — paste your API key into lib/config/revenuecat_config.dart');
+      return;
+    }
+
+    await Purchases.setLogLevel(LogLevel.info);
+    final config = PurchasesConfiguration(apiKey)..observerMode = true;
+    await Purchases.configure(config);
+    debugPrint('✅ RevenueCat configured (observer mode)');
+  } catch (e) {
+    // Never block app start on RC init — fall through to local-cache fallback.
+    debugPrint('❌ RevenueCat init failed: $e');
+  }
 }
 
 class MyApp extends StatefulWidget {

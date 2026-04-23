@@ -1896,7 +1896,7 @@ class _FirstOpenBubbleState extends State<_FirstOpenBubble>
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Now the magic ✨',
+                  'More magic? ✨',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
