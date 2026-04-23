@@ -14,7 +14,11 @@
 /// constants in SubscriptionService: `voicebubble_pro_monthly` and
 /// `voicebubble_pro_yearly`.
 class RevenueCatConfig {
-  static const String androidApiKey = 'PASTE_YOUR_ANDROID_KEY_HERE';
+  // Temporary project-wide test key (issued by RevenueCat before a platform
+  // app was added). Works for SDK wiring / init but will NOT see real Play
+  // purchases. Swap for the real Android key (starts with `goog_...`) once
+  // the Google Play app is attached in the RevenueCat dashboard.
+  static const String androidApiKey = 'test_HMdPlxXKtDhrSHxyKfJnJHcOcqu';
   static const String iosApiKey = 'PASTE_YOUR_IOS_KEY_HERE';
 
   /// Entitlement identifier in the RevenueCat dashboard. Case-sensitive.
