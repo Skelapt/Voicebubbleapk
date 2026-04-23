@@ -40,11 +40,13 @@ void main() async {
   await ReminderManager().initialize();
   debugPrint('✅ Reminder system initialized');
 
-  // Initialize RevenueCat (observer mode). Sits alongside in_app_purchase
-  // so product IDs / purchase flow stay unchanged — RC becomes the truth
-  // source for Pro entitlement + restore + dashboard analytics. Skips
-  // silently until you paste the API key in lib/config/revenuecat_config.dart.
-  await _initRevenueCat();
+  // Initialize RevenueCat (observer mode) in the BACKGROUND — do NOT await.
+  // If RC's network init hangs or the SDK stalls, the splash would never
+  // hand off to Flutter and the app would appear frozen. Any later call
+  // to Purchases.* that fires before RC finishes configuring is caught
+  // by the fallback in SubscriptionService.hasActiveSubscription().
+  // ignore: discarded_futures
+  _initRevenueCat();
 
   // Initialize In-App Purchase system
   await SubscriptionService().initialize();
@@ -80,7 +82,12 @@ Future<void> _initRevenueCat() async {
       ..purchasesAreCompletedBy = PurchasesAreCompletedByMyApp(
         storeKitVersion: StoreKitVersion.defaultVersion,
       );
-    await Purchases.configure(config);
+    await Purchases.configure(config).timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {
+        debugPrint('⚠️ RevenueCat configure timed out — continuing anyway');
+      },
+    );
     debugPrint('✅ RevenueCat configured (observer mode)');
   } catch (e) {
     // Never block app start on RC init — fall through to local-cache fallback.
