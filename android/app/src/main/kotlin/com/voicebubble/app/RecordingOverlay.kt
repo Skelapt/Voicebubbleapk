@@ -1,5 +1,6 @@
 package com.voicebubble.app
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -12,26 +13,30 @@ import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.io.File
 
 /**
- * Pure-native floating overlay that hosts the recording pill /
- * (later) result card. Same primitive the bubble itself uses:
- * `WindowManager.addView(plainAndroidView)`.
+ * Native floating overlay — the recording pill that paints over
+ * whatever app the user is in. Same primitive as the bubble itself
+ * (`WindowManager.addView`), no Flutter / isolate / plugin layer.
  *
- * NB2 scope: live recording UI.
- *   • Adds a [WaveformView] driven by `MediaRecorder.maxAmplitude`
- *     polled on a 80ms Handler tick.
- *   • Big purple stop button; tapping it stops the recorder and
- *     fires `onComplete(audioPath)`.
- *   • Cancel ✕ chip stops the recorder, deletes the file, fires
- *     `onCancel()`.
- *
- * NB3 will wire `onComplete` → AI backend; NB4 will swap the card
- * for the result UI; NB5 adds preset fan; NB6 polish.
+ * NB2: live recording. Premium design language —
+ *   • Glass blur behind (Android 12+) so the underlying app stays
+ *     legible but recedes.
+ *   • Centered pill, capped at 320dp wide so it never feels like
+ *     a slab.
+ *   • Pulsing 6dp red "live" dot, no text label needed.
+ *   • Mirrored 32-bar oscilloscope waveform driven off
+ *     `MediaRecorder.maxAmplitude`.
+ *   • 52dp purple stop button that *breathes* (subtle scale pulse)
+ *     so it visually invites the tap. Soft halo glow.
+ *   • Tiny 28dp cancel chip — secondary, never competes.
+ *   • 220ms scale-fade in / 140ms scale-fade out so transitions
+ *     feel composed, not jumpy.
  */
 object RecordingOverlay {
 
@@ -45,17 +50,10 @@ object RecordingOverlay {
     private var ampPoll: Runnable? = null
     private var waveform: WaveformView? = null
 
+    private val animators = mutableListOf<ValueAnimator>()
+
     fun isShowing(): Boolean = view != null
 
-    /**
-     * Show the recording overlay over whatever app the user is in.
-     * Starts mic capture immediately.
-     *
-     * @param onComplete called with the recorded audio file path when
-     *                   the user taps stop.
-     * @param onCancel   called when the user taps the ✕ chip; the
-     *                   audio file is already removed when this fires.
-     */
     fun show(
         ctx: Context,
         onComplete: (audioPath: String) -> Unit,
@@ -71,15 +69,15 @@ object RecordingOverlay {
             ctx,
             onStop = {
                 val path = stopRecording(ctx)
-                hide()
-                if (path != null) onComplete(path)
+                hideAnimated {
+                    if (path != null) onComplete(path)
+                }
             },
             onCancel = {
                 stopRecording(ctx)?.let { p ->
                     runCatching { File(p).delete() }
                 }
-                hide()
-                onCancel()
+                hideAnimated { onCancel() }
             }
         )
 
@@ -92,33 +90,79 @@ object RecordingOverlay {
             }
 
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
+            // FLAG_NOT_FOCUSABLE keeps the underlying app interactive.
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.CENTER
         }
 
+        // Glass blur of underlying app on Android 12+. Adds the
+        // single-most-important "premium" cue — the underlying
+        // content stays visible but recedes. Older devices fall
+        // back to the card's own 88% solid fill.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            params.flags = params.flags or
+                WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+            params.blurBehindRadius = 28
+        }
+
+        // Enter animation: subtle scale + fade. 220ms easeOutCubic.
+        root.alpha = 0f
+        root.scaleX = 0.94f
+        root.scaleY = 0.94f
         windowManager.addView(root, params)
         view = root
+        root.animate()
+            .alpha(1f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(220)
+            .setInterpolator(PathInterpolator(0.16f, 1f, 0.3f, 1f))
+            .start()
 
-        // Begin recording immediately. If the mic isn't available
-        // we still leave the overlay visible so the user gets feedback;
-        // tapping cancel always removes everything cleanly.
         startRecording(ctx)
     }
 
-    fun hide() {
+    fun hide() = hideAnimated(null)
+
+    private fun hideAnimated(after: (() -> Unit)?) {
         ampPoll?.let { ampHandler?.removeCallbacks(it) }
         ampHandler = null
         ampPoll = null
+        cancelAnimators()
         waveform = null
-        val v = view ?: return
-        try { wm?.removeView(v) } catch (_: Throwable) { /* already detached */ }
+        val v = view
+        val windowManager = wm
+        if (v == null || windowManager == null) {
+            view = null
+            wm = null
+            after?.invoke()
+            return
+        }
         view = null
         wm = null
+        v.animate()
+            .alpha(0f)
+            .scaleX(0.96f)
+            .scaleY(0.96f)
+            .setDuration(140)
+            .setInterpolator(PathInterpolator(0.4f, 0f, 1f, 1f))
+            .withEndAction {
+                try { windowManager.removeView(v) } catch (_: Throwable) {}
+                after?.invoke()
+            }
+            .start()
+    }
+
+    private fun cancelAnimators() {
+        for (a in animators) {
+            try { a.cancel() } catch (_: Throwable) {}
+        }
+        animators.clear()
     }
 
     // ───────── MediaRecorder lifecycle ─────────
@@ -149,15 +193,10 @@ object RecordingOverlay {
                 "MediaRecorder started → ${audioFile!!.name}"
             )
 
-            // Drive the waveform off real mic levels.
             ampHandler = Handler(Looper.getMainLooper())
             ampPoll = object : Runnable {
                 override fun run() {
                     val amp = try { rec.maxAmplitude } catch (_: Throwable) { 0 }
-                    // MediaRecorder.maxAmplitude is a 16-bit signed
-                    // peak (0..32767). Empirically ~8000 is a strong
-                    // speaking voice — divide so a normal voice fills
-                    // most of the bar.
                     val normalized = (amp / 8000f).coerceIn(0.12f, 1f)
                     waveform?.pushAmplitude(normalized)
                     ampHandler?.postDelayed(this, 80)
@@ -206,48 +245,79 @@ object RecordingOverlay {
         onCancel: () -> Unit,
     ): View {
         val outer = FrameLayout(ctx).apply {
-            setPadding(dp(ctx, 16), 0, dp(ctx, 16), 0)
+            // Cap pill width at ~320dp so it never feels slab-y.
+            // Outer FrameLayout is WRAP_CONTENT so the card sets
+            // its own bounds.
         }
 
         val card = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(
-                dp(ctx, 20),
+                dp(ctx, 16),
                 dp(ctx, 14),
                 dp(ctx, 12),
                 dp(ctx, 14)
             )
             background = GradientDrawable().apply {
-                cornerRadius = dp(ctx, 28).toFloat()
-                setColor(Color.parseColor("#E60D0D1A")) // navy 90%
-                setStroke(dp(ctx, 1), Color.parseColor("#1AFFFFFF"))
+                cornerRadius = dp(ctx, 32).toFloat()
+                // 88% navy — feels solid where blur isn't supported,
+                // and lets blur do the heavy lifting where it is.
+                setColor(Color.parseColor("#E10D0D1A"))
+                setStroke(
+                    1, // 0.5dp visually after AA
+                    Color.parseColor("#14FFFFFF") // white @ 8%
+                )
             }
+            // Soft drop shadow — Android elevation gets us part of
+            // the way; the blur-behind does the rest.
+            elevation = dp(ctx, 18).toFloat()
             layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
+                dp(ctx, 320),
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
         }
 
-        // Live waveform takes the leading flex space.
+        // ●  the live "REC" dot. No label, no text.
+        val recDot = View(ctx).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.parseColor("#FF3B30")) // iOS-y red
+            }
+            val s = dp(ctx, 7)
+            layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                marginEnd = dp(ctx, 10)
+            }
+            alpha = 0.4f
+        }
+        startBreathing(recDot, fromAlpha = 0.35f, toAlpha = 1f, durationMs = 800)
+
+        // Live waveform, mirrored from center, fills remaining space.
         val wave = WaveformView(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(
                 0,
-                dp(ctx, 44),
+                dp(ctx, 40),
                 1f
             )
         }
         waveform = wave
 
-        // Primary STOP — purple circle with a square glyph.
+        // Primary STOP. Breathing scale pulse so it visually
+        // invites the tap. Soft purple halo via large elevation +
+        // tinted shadow.
         val stop = TextView(ctx).apply {
             text = "■"
             setTextColor(Color.WHITE)
-            textSize = 18f
+            textSize = 16f
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.parseColor("#7C6AE8"))
+            }
+            elevation = dp(ctx, 8).toFloat()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                outlineSpotShadowColor = Color.parseColor("#7C6AE8")
+                outlineAmbientShadowColor = Color.parseColor("#7C6AE8")
             }
             val size = dp(ctx, 52)
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
@@ -255,20 +325,32 @@ object RecordingOverlay {
             }
             isClickable = true
             isFocusable = true
-            setOnClickListener { onStop() }
+            setOnClickListener {
+                // Snap-down haptic feel: scale to 0.9 for 80ms, then
+                // run the actual stop.
+                animate()
+                    .scaleX(0.9f).scaleY(0.9f)
+                    .setDuration(80)
+                    .withEndAction {
+                        animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                        onStop()
+                    }.start()
+            }
         }
+        startBreathing(stop, fromScale = 0.97f, toScale = 1f, durationMs = 1500)
 
-        // Secondary CANCEL chip.
+        // Secondary CANCEL — smaller, quieter so it doesn't compete
+        // with stop.
         val cancel = TextView(ctx).apply {
             text = "✕"
-            setTextColor(Color.WHITE)
-            textSize = 16f
+            setTextColor(Color.parseColor("#CCFFFFFF"))
+            textSize = 13f
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#1AFFFFFF"))
+                setColor(Color.parseColor("#10FFFFFF"))
             }
-            val size = dp(ctx, 36)
+            val size = dp(ctx, 28)
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
                 marginStart = dp(ctx, 8)
             }
@@ -277,11 +359,52 @@ object RecordingOverlay {
             setOnClickListener { onCancel() }
         }
 
+        card.addView(recDot)
         card.addView(wave)
         card.addView(stop)
         card.addView(cancel)
         outer.addView(card)
         return outer
+    }
+
+    /** Breathing alpha pulse used by the REC dot. */
+    private fun startBreathing(
+        target: View,
+        fromAlpha: Float,
+        toAlpha: Float,
+        durationMs: Long,
+    ) {
+        val a = ValueAnimator.ofFloat(fromAlpha, toAlpha).apply {
+            duration = durationMs
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = PathInterpolator(0.4f, 0f, 0.6f, 1f) // soft sine-ish
+            addUpdateListener { target.alpha = it.animatedValue as Float }
+        }
+        a.start()
+        animators.add(a)
+    }
+
+    /** Breathing scale pulse used by the stop button. */
+    private fun startBreathing(
+        target: View,
+        fromScale: Float,
+        toScale: Float,
+        durationMs: Long,
+    ) {
+        val a = ValueAnimator.ofFloat(fromScale, toScale).apply {
+            duration = durationMs
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = PathInterpolator(0.4f, 0f, 0.6f, 1f)
+            addUpdateListener {
+                val v = it.animatedValue as Float
+                target.scaleX = v
+                target.scaleY = v
+            }
+        }
+        a.start()
+        animators.add(a)
     }
 
     private fun dp(ctx: Context, value: Int): Int =
