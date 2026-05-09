@@ -8,7 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'models/preset.dart';
 import 'services/ai_service.dart';
 import 'services/text_injection_service.dart';
 
@@ -42,7 +44,33 @@ const _kSurface = Color(0xFF0D0D1A);
 const _kDangerRed = Color(0xFFEF4444);
 const _kPillRadius = 28.0;
 
-enum _Phase { recording, polishing, result, inserting, error }
+enum _Phase {
+  presetSelection,
+  customInput,
+  recording,
+  polishing,
+  result,
+  inserting,
+  error,
+}
+
+/// The five quick presets we expose on the long-press fan, in order.
+/// Custom is special — it opens a text input rather than starting
+/// recording immediately.
+class _QuickPreset {
+  final String id; // backend preset id, or "custom"
+  final String label;
+  final IconData icon;
+  const _QuickPreset(this.id, this.label, this.icon);
+}
+
+const _kQuickPresets = <_QuickPreset>[
+  _QuickPreset('magic', 'Magic', Icons.auto_awesome_rounded),
+  _QuickPreset('quick_reply', 'Reply', Icons.reply_rounded),
+  _QuickPreset('email_professional', 'Email', Icons.mail_outline_rounded),
+  _QuickPreset('instagram_caption', 'Social', Icons.local_fire_department_rounded),
+  _QuickPreset('custom', 'Custom', Icons.edit_rounded),
+];
 
 // ───────────────────── Main flow widget ─────────────────────
 
@@ -71,6 +99,11 @@ class _RecordingFlowState extends State<_RecordingFlow>
   String? _intentLabel;
   String _errorMessage = '';
 
+  // Preset / custom-instruction selection (set by the long-press fan).
+  String _activePresetId = 'magic';
+  String? _customInstruction;
+  final TextEditingController _customCtrl = TextEditingController();
+
   // Animation controllers for the polishing shimmer + result fade-in.
   late final AnimationController _shimmerCtrl;
   late final AnimationController _waveCtrl;
@@ -93,17 +126,74 @@ class _RecordingFlowState extends State<_RecordingFlow>
     )..forward();
     _waveCtrl.repeat();
 
-    _startRecording();
+    _bootstrap();
+  }
+
+  /// Decide whether to start in recording mode (short tap on the bubble)
+  /// or in preset selection mode (long-press), based on the flag the
+  /// native OverlayService writes to SharedPreferences right before
+  /// it invokes the activity.
+  Future<void> _bootstrap() async {
+    bool showPresets = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // The native side writes to a separate shared_prefs file
+      // (voicebubble_overlay_prefs); SharedPreferences uses the
+      // default "FlutterSharedPreferences" by default. We instead
+      // mirror the flag through that default file too — simpler than
+      // wiring a custom name. Native side writes the value via the
+      // method-channel on the OverlayPlugin (added below).
+      showPresets = prefs.getBool('show_presets_on_open') ?? false;
+      if (showPresets) {
+        await prefs.setBool('show_presets_on_open', false);
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+    if (showPresets) {
+      setState(() => _phase = _Phase.presetSelection);
+    } else {
+      _startRecording();
+    }
   }
 
   @override
   void dispose() {
     _ampSub?.cancel();
     _recorder.dispose();
+    _customCtrl.dispose();
     _shimmerCtrl.dispose();
     _waveCtrl.dispose();
     _enterCtrl.dispose();
     super.dispose();
+  }
+
+  // ───────── Preset selection ─────────
+
+  void _onPresetTap(_QuickPreset preset) {
+    HapticFeedback.selectionClick();
+    if (preset.id == 'custom') {
+      setState(() => _phase = _Phase.customInput);
+      return;
+    }
+    setState(() {
+      _activePresetId = preset.id;
+      _customInstruction = null;
+      _phase = _Phase.recording;
+    });
+    _startRecording();
+  }
+
+  void _submitCustomInstruction() {
+    final instruction = _customCtrl.text.trim();
+    if (instruction.isEmpty) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _activePresetId = 'magic'; // Magic + custom instruction as steering
+      _customInstruction = instruction;
+      _phase = _Phase.recording;
+    });
+    _startRecording();
   }
 
   // ───────── Recording ─────────
@@ -151,17 +241,38 @@ class _RecordingFlowState extends State<_RecordingFlow>
         return;
       }
       final file = File(path);
-      final transcript = await _ai.transcribeAudio(file);
-      if (transcript.trim().isEmpty) {
+      final rawTranscript = await _ai.transcribeAudio(file);
+      if (rawTranscript.trim().isEmpty) {
         await _failTo('No speech detected');
         return;
       }
-      final magic =
-          await _ai.rewriteMagic(text: transcript, languageCode: 'en');
+
+      // If the user typed a custom steering instruction, prepend it to
+      // the transcript so the magic preset uses it as guidance.
+      final transcript = (_customInstruction != null &&
+              _customInstruction!.isNotEmpty)
+          ? '[Instruction: ${_customInstruction!}]\n$rawTranscript'
+          : rawTranscript;
+
+      String resultText;
+      String? intentLabel;
+      if (_activePresetId == 'magic') {
+        final magic =
+            await _ai.rewriteMagic(text: transcript, languageCode: 'en');
+        resultText = magic.text.isNotEmpty ? magic.text : rawTranscript;
+        intentLabel = magic.label ?? (_customInstruction != null ? 'Custom' : null);
+      } else {
+        final preset = _presetForId(_activePresetId);
+        final rewritten =
+            await _ai.rewriteText(transcript, preset, 'en');
+        resultText = rewritten.isNotEmpty ? rewritten : rawTranscript;
+        intentLabel = preset.name;
+      }
+
       if (!mounted) return;
       setState(() {
-        _resultText = magic.text.isNotEmpty ? magic.text : transcript;
-        _intentLabel = magic.label;
+        _resultText = resultText;
+        _intentLabel = intentLabel;
         _phase = _Phase.result;
       });
       HapticFeedback.selectionClick();
@@ -171,6 +282,22 @@ class _RecordingFlowState extends State<_RecordingFlow>
     } catch (_) {
       await _failTo('Polish failed — try again');
     }
+  }
+
+  /// Build a Preset object on the fly to hand to AIService.rewriteText.
+  /// Only `id` matters server-side — name is just for the result label.
+  Preset _presetForId(String id) {
+    final quick = _kQuickPresets.firstWhere(
+      (p) => p.id == id,
+      orElse: () => _kQuickPresets.first,
+    );
+    return Preset(
+      id: quick.id,
+      icon: quick.icon,
+      name: quick.label,
+      description: '',
+      category: '',
+    );
   }
 
   Future<void> _retryRecording() async {
@@ -289,6 +416,18 @@ class _RecordingFlowState extends State<_RecordingFlow>
 
   Widget _buildForPhase() {
     switch (_phase) {
+      case _Phase.presetSelection:
+        return _PresetFanPill(
+          presets: _kQuickPresets,
+          onSelect: _onPresetTap,
+          onCancel: _cancel,
+        );
+      case _Phase.customInput:
+        return _CustomInputPill(
+          controller: _customCtrl,
+          onSubmit: _submitCustomInstruction,
+          onCancel: _cancel,
+        );
       case _Phase.recording:
         return _RecordingPill(
           wave: _wave,
@@ -314,6 +453,207 @@ class _RecordingFlowState extends State<_RecordingFlow>
           onCancel: _cancel,
         );
     }
+  }
+}
+
+// ───────────────────── Preset fan pill ─────────────────────
+
+class _PresetFanPill extends StatelessWidget {
+  final List<_QuickPreset> presets;
+  final ValueChanged<_QuickPreset> onSelect;
+  final VoidCallback onCancel;
+  const _PresetFanPill({
+    required this.presets,
+    required this.onSelect,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassPill(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const SizedBox(width: 4),
+                const Text(
+                  'CHOOSE A STYLE',
+                  style: TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const Spacer(),
+                _ChipIcon(icon: Icons.close_rounded, onTap: onCancel),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Horizontal row of preset chips with a tiny stagger so they
+            // appear to fan in.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(presets.length, (i) {
+                final p = presets[i];
+                return _PresetChip(
+                  preset: p,
+                  delayMs: i * 35,
+                  onTap: () => onSelect(p),
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PresetChip extends StatefulWidget {
+  final _QuickPreset preset;
+  final int delayMs;
+  final VoidCallback onTap;
+  const _PresetChip({
+    required this.preset,
+    required this.delayMs,
+    required this.onTap,
+  });
+
+  @override
+  State<_PresetChip> createState() => _PresetChipState();
+}
+
+class _PresetChipState extends State<_PresetChip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 240),
+    );
+    Future.delayed(Duration(milliseconds: widget.delayMs), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: Tween(begin: 0.6, end: 1.0).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack),
+      ),
+      child: FadeTransition(
+        opacity: _ctrl,
+        child: Material(
+          color: Colors.transparent,
+          child: InkResponse(
+            onTap: widget.onTap,
+            radius: 36,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _kBrandPurple.withOpacity(0.15),
+                    border: Border.all(
+                      color: _kBrandPurple.withOpacity(0.45),
+                      width: 1,
+                    ),
+                  ),
+                  child:
+                      Icon(widget.preset.icon, color: _kBrandPurple, size: 22),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.preset.label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ───────────────────── Custom instruction pill ─────────────────────
+
+class _CustomInputPill extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onSubmit;
+  final VoidCallback onCancel;
+  const _CustomInputPill({
+    required this.controller,
+    required this.onSubmit,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassPill(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 14, 14),
+        child: Row(
+          children: [
+            const Icon(Icons.edit_rounded, color: _kBrandPurple, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+                cursorColor: _kBrandPurple,
+                decoration: const InputDecoration(
+                  hintText: 'shorter / formal / translate to spanish…',
+                  hintStyle: TextStyle(color: Color(0xFF60607A), fontSize: 14),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+                textInputAction: TextInputAction.go,
+                onSubmitted: (_) => onSubmit(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onSubmit,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _kBrandPurple,
+                ),
+                child: const Icon(Icons.arrow_forward_rounded,
+                    color: Colors.white, size: 20),
+              ),
+            ),
+            const SizedBox(width: 6),
+            _ChipIcon(icon: Icons.close_rounded, onTap: onCancel),
+          ],
+        ),
+      ),
+    );
   }
 }
 
