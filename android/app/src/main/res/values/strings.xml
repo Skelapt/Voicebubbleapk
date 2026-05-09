@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">VoiceBubble</string>
+    <string name="a11y_service_summary">Lets the bubble paste your AI-rewritten text straight into any app</string>
+    <string name="a11y_service_description">VoiceBubble uses this only to detect the text field you\'re typing in and to insert the AI-polished result at your cursor. It does not collect, store, or share content from other apps.</string>
 </resources>
-

@@ -28,7 +28,9 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
@@ -210,21 +212,13 @@ class OverlayService : Service() {
             }
             container.addView(iconView)
             
-            // Set click listener - Open main app
+            // Set click listener — short tap pops the Flutter recording
+            // overlay over whatever app the user is currently in. The
+            // long-press path is wired up in setupDragListener (it uses
+            // the same MainActivity intent but writes a flag first so
+            // the overlay opens straight into preset selection).
             container.setOnClickListener {
-                try {
-                    Log.d(TAG, "Bubble clicked, opening app")
-                    
-                    val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        putExtra("open_recording", true)
-                    }
-                    startActivity(intent)
-                    
-                    Log.d(TAG, "MainActivity opened")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error opening app", e)
-                }
+                showRecordingOverlay(showPresets = false)
             }
             
             Log.d(TAG, "Bubble view created successfully")
@@ -238,14 +232,59 @@ class OverlayService : Service() {
     private fun dpToPx(dp: Int): Int {
         return (dp * resources.displayMetrics.density).toInt()
     }
-    
+
+    /**
+     * Open MainActivity with the action that pops the Flutter recording
+     * overlay. Optionally writes a SharedPreference flag the overlay
+     * isolate reads on init so it can start in preset-selection mode
+     * (driven by long-press on the bubble).
+     */
+    private fun showRecordingOverlay(showPresets: Boolean) {
+        try {
+            // Write into the same backing file the Dart `shared_preferences`
+            // plugin reads from on Android (file name `FlutterSharedPreferences`,
+            // keys prefixed with `flutter.`). The overlay isolate reads
+            // `show_presets_on_open` on init to decide its initial phase.
+            getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("flutter.show_presets_on_open", showPresets)
+                .apply()
+
+            val intent = Intent(this, MainActivity::class.java).apply {
+                action = "SHOW_OVERLAY_POPUP"
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            }
+            startActivity(intent)
+            Log.d(TAG, "Recording overlay requested (showPresets=$showPresets)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing recording overlay", e)
+        }
+    }
+
     private fun setupDragListener(params: WindowManager.LayoutParams) {
         var initialX = 0
         var initialY = 0
         var initialTouchX = 0f
         var initialTouchY = 0f
         var isMoved = false
-        
+        var longPressFired = false
+
+        val handler = Handler(Looper.getMainLooper())
+        val longPressRunnable = Runnable {
+            if (!isMoved) {
+                longPressFired = true
+                Log.d(TAG, "Bubble long-press → preset fan")
+                // Subtle haptic via the view itself so the user feels
+                // the long-press register before the overlay paints.
+                overlayView?.performHapticFeedback(
+                    android.view.HapticFeedbackConstants.LONG_PRESS
+                )
+                showRecordingOverlay(showPresets = true)
+            }
+        }
+
         overlayView?.setOnTouchListener { view, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -254,15 +293,22 @@ class OverlayService : Service() {
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
                     isMoved = false
+                    longPressFired = false
+                    handler.postDelayed(longPressRunnable, 400)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val deltaX = Math.abs(event.rawX - initialTouchX)
                     val deltaY = Math.abs(event.rawY - initialTouchY)
-                    
+
                     if (deltaX > 10 || deltaY > 10) {
+                        if (!isMoved) {
+                            // First time we cross the drag threshold —
+                            // cancel any pending long-press so we don't
+                            // open the preset fan after a drag.
+                            handler.removeCallbacks(longPressRunnable)
+                        }
                         isMoved = true
-                        // FIX: Both coordinates now move in correct direction
                         params.x = initialX + (event.rawX - initialTouchX).toInt()
                         params.y = initialY + (event.rawY - initialTouchY).toInt()
                         try {
@@ -274,10 +320,15 @@ class OverlayService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!isMoved) {
-                        // It was a click, not a drag
+                    handler.removeCallbacks(longPressRunnable)
+                    if (!isMoved && !longPressFired) {
+                        // Plain tap — let the click listener fire.
                         view.performClick()
                     }
+                    false
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    handler.removeCallbacks(longPressRunnable)
                     false
                 }
                 else -> false

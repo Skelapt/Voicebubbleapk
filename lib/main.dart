@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'providers/app_state_provider.dart';
@@ -55,6 +57,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  static const _overlayChannel = MethodChannel('voicebubble/overlay');
+
   final _navigatorKey = GlobalKey<NavigatorState>();
   SharedContent? _pendingShareContent;
 
@@ -62,6 +66,38 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _setupShareListener();
+    _setupOverlayShowListener();
+  }
+
+  /// Native side (OverlayService → MainActivity) calls
+  /// `showOverlayWindow` when the user taps the floating bubble.
+  /// We respond by spinning up the flutter_overlay_window engine —
+  /// that's the recording pill / result card that sits on top of
+  /// whatever app the user is currently in.
+  void _setupOverlayShowListener() {
+    _overlayChannel.setMethodCallHandler((call) async {
+      if (call.method == 'showOverlayWindow') {
+        try {
+          final isShowing = await FlutterOverlayWindow.isActive();
+          if (isShowing == true) {
+            // Already up — bring focus, don't double-instantiate.
+            return null;
+          }
+          await FlutterOverlayWindow.showOverlay(
+            height: 220,
+            width: WindowSize.matchParent,
+            alignment: OverlayAlignment.center,
+            flag: OverlayFlag.defaultFlag,
+            overlayTitle: 'VoiceBubble',
+            overlayContent: 'Recording…',
+            enableDrag: false,
+          );
+        } catch (e) {
+          debugPrint('❌ Failed to show overlay window: $e');
+        }
+      }
+      return null;
+    });
   }
 
   void _setupShareListener() {

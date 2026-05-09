@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Configuration for VoiceBubbleA11yService.
+
+    We listen broadly for window/focus changes so we can track which
+    app is in front and which editable field has focus, but we don't
+    need to read screen content beyond what's necessary to inject
+    text into the focused EditText. That's enforced in code by only
+    ever touching `findFocus(FOCUS_INPUT)` and the editable subtree
+    immediately around it.
+-->
+<accessibility-service
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeViewFocused|typeViewTextSelectionChanged|typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagRequestFilterKeyEvents"
+    android:canRequestFilterKeyEvents="false"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="100"
+    android:settingsActivity="com.voicebubble.app.MainActivity"
+    android:summary="@string/a11y_service_summary"
+    android:description="@string/a11y_service_description" />

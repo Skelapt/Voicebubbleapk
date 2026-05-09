@@ -62,6 +62,33 @@ class OverlayPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             "isActive" -> {
                 result.success(isOverlayServiceRunning())
             }
+
+            // Accessibility (text-injection) methods
+            "isAccessibilityEnabled" -> {
+                val ctx = context
+                result.success(ctx != null && VoiceBubbleA11yService.isEnabled(ctx))
+            }
+            "openAccessibilitySettings" -> {
+                context?.let { VoiceBubbleA11yService.openSettings(it) }
+                result.success(null)
+            }
+            "injectText" -> {
+                val text = call.argument<String>("text")
+                if (text.isNullOrEmpty()) {
+                    result.success(false)
+                    return
+                }
+                val service = VoiceBubbleA11yService.getInstance()
+                if (service == null) {
+                    result.success(false)
+                    return
+                }
+                result.success(service.setFocusedFieldText(text))
+            }
+            "getFocusedAppPackage" -> {
+                result.success(VoiceBubbleA11yService.lastFocusedPackage)
+            }
+
             else -> {
                 result.notImplemented()
             }

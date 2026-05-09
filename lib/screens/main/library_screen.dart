@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
@@ -30,8 +31,10 @@ import '../../services/analytics_service.dart';
 import '../../services/native_overlay_service.dart';
 import '../../services/ai_service.dart';
 import '../../services/feature_gate.dart';
+import '../../services/text_injection_service.dart';
 import '../settings/settings_screen.dart';
 import '../paywall/paywall_screen.dart';
+import '../onboarding/accessibility_permission_screen.dart';
 import 'project_detail_screen.dart';
 import 'recording_detail_screen.dart';
 import 'recording_screen.dart';
@@ -98,6 +101,9 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
               duration: Duration(seconds: 3),
             ),
           );
+          // First-time path: prompt for the Accessibility permission so
+          // the bubble can paste in-place rather than fall back to clipboard.
+          await _maybePromptAccessibility();
         }
       }
 
@@ -189,6 +195,10 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
               duration: Duration(seconds: 3),
             ),
           );
+          // First-time path: prompt for the Accessibility permission so
+          // the bubble can paste in-place. Without this it falls back to
+          // clipboard, which is the worse experience.
+          await _maybePromptAccessibility();
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -199,6 +209,47 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
           );
         }
       }
+    }
+  }
+
+  /// Show the AccessibilityPermissionScreen the first time the user
+  /// activates the bubble. Skip once granted, or once the user has
+  /// dismissed it twice (so we don't pester them).
+  Future<void> _maybePromptAccessibility() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final alreadyEnabled = await TextInjectionService.isEnabled();
+      if (alreadyEnabled) return;
+      final prefs = await SharedPreferences.getInstance();
+      final dismissCount = prefs.getInt('a11y_prompt_dismissed_count') ?? 0;
+      if (dismissCount >= 2) return;
+      if (!mounted) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (ctx) => AccessibilityPermissionScreen(
+            onComplete: () => Navigator.of(ctx).pop(),
+          ),
+        ),
+      );
+
+      // Re-poll OS state on return — more reliable than threading a
+      // result back through the screen's onComplete callback.
+      final nowEnabled = await TextInjectionService.isEnabled();
+      if (!nowEnabled) {
+        await prefs.setInt('a11y_prompt_dismissed_count', dismissCount + 1);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✨ Magic enabled — text now lands in-app'),
+            backgroundColor: Color(0xFF7C6AE8),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ Accessibility prompt flow failed: $e');
     }
   }
 
