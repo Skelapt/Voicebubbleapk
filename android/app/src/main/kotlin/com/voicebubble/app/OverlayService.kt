@@ -210,20 +210,25 @@ class OverlayService : Service() {
             }
             container.addView(iconView)
             
-            // Set click listener - Open main app
+            // Set click listener — pop the Flutter recording overlay over
+            // whatever app the user is currently in. We use the
+            // SHOW_OVERLAY_POPUP intent action which MainActivity handles
+            // by spinning up the flutter_overlay_window engine and then
+            // immediately moving itself to the back, so the user never
+            // visibly leaves their original app.
             container.setOnClickListener {
                 try {
-                    Log.d(TAG, "Bubble clicked, opening app")
-                    
+                    Log.d(TAG, "Bubble clicked → showing recording overlay")
+
                     val intent = Intent(this@OverlayService, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        putExtra("open_recording", true)
+                        action = "SHOW_OVERLAY_POPUP"
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     }
                     startActivity(intent)
-                    
-                    Log.d(TAG, "MainActivity opened")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error opening app", e)
+                    Log.e(TAG, "Error showing recording overlay", e)
                 }
             }
             
