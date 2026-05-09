@@ -32,6 +32,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import io.flutter.embedding.engine.FlutterEngineCache
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -234,22 +235,62 @@ class OverlayService : Service() {
     }
 
     /**
-     * Open MainActivity with the action that pops the Flutter recording
-     * overlay. Optionally writes a SharedPreference flag the overlay
-     * isolate reads on init so it can start in preset-selection mode
-     * (driven by long-press on the bubble).
+     * Pop the Flutter recording overlay over whatever app the user is
+     * currently in.
+     *
+     * No MainActivity bounce, no visible flash. We invoke `showOverlay`
+     * directly on the cached background Flutter engine's method channel
+     * (the one [MyApplication] keeps warm at process start). The
+     * `flutter_overlay_window` plugin's MethodCallHandler receives the
+     * call, sets up its own OverlayService, and adds a FlutterView to
+     * WindowManager — all without ever bringing an Activity to front.
+     *
+     * If the cached engine isn't available for any reason (process
+     * cold-started without [MyApplication] running, OEM weirdness),
+     * we fall back to the activity-bridge path so the bubble still
+     * works — just with the old flash.
      */
     private fun showRecordingOverlay(showPresets: Boolean) {
         try {
-            // Write into the same backing file the Dart `shared_preferences`
-            // plugin reads from on Android (file name `FlutterSharedPreferences`,
-            // keys prefixed with `flutter.`). The overlay isolate reads
-            // `show_presets_on_open` on init to decide its initial phase.
+            // Write the preset-mode flag into the same SharedPreferences
+            // file the Dart `shared_preferences` plugin reads from. The
+            // overlay isolate (which is yet ANOTHER Flutter engine,
+            // independent of the bg engine here) picks this up on init
+            // to decide whether to open in recording or preset selection.
             getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
                 .edit()
                 .putBoolean("flutter.show_presets_on_open", showPresets)
                 .apply()
 
+            val engine = FlutterEngineCache.getInstance()
+                .get(MyApplication.BG_ENGINE_ID)
+            if (engine != null) {
+                // Direct invocation. Stays on the binder thread of the
+                // method channel, which is fine — flutter_overlay_window
+                // marshals its own work onto the main thread internally.
+                Handler(Looper.getMainLooper()).post {
+                    val args = mapOf(
+                        "height" to 220,
+                        "width" to -1,            // matchParent
+                        "alignment" to "center",
+                        "flag" to "defaultFlag",
+                        "overlayTitle" to "VoiceBubble",
+                        "overlayContent" to "Recording",
+                        "enableDrag" to false,
+                        "notificationVisibility" to "visibilityPrivate",
+                        "positionGravity" to "none",
+                        "startPosition" to null
+                    )
+                    MethodChannel(
+                        engine.dartExecutor.binaryMessenger,
+                        "x-slayer/overlay_channel"
+                    ).invokeMethod("showOverlay", args)
+                    Log.d(TAG, "showOverlay invoked on cached engine (presets=$showPresets)")
+                }
+                return
+            }
+
+            Log.w(TAG, "Background engine missing — falling back via MainActivity bridge")
             val intent = Intent(this, MainActivity::class.java).apply {
                 action = "SHOW_OVERLAY_POPUP"
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -257,7 +298,6 @@ class OverlayService : Service() {
                         Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
             }
             startActivity(intent)
-            Log.d(TAG, "Recording overlay requested (showPresets=$showPresets)")
         } catch (e: Exception) {
             Log.e(TAG, "Error showing recording overlay", e)
         }

@@ -49,6 +49,21 @@ void main() async {
   runApp(const MyApp());
 }
 
+/// Lightweight no-op entry point used by `MyApplication.kt` to keep
+/// a long-lived Flutter engine alive in the background. We don't run
+/// the full main app inside this engine — we just need an isolate
+/// that has all pubspec plugins (especially flutter_overlay_window)
+/// auto-registered, so the bubble's native service can invoke
+/// `showOverlay` on the plugin's method channel without bringing
+/// MainActivity to the foreground (avoids the visible flash).
+@pragma('vm:entry-point')
+void bgEngineMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Keep the isolate alive forever — plugins are now reachable from
+  // any Service in the same process via FlutterEngineCache.
+  // No UI, no Firebase init, no app state. Pure plumbing.
+}
+
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -66,34 +81,30 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _setupShareListener();
-    _setupOverlayShowListener();
+    _setupOverlayFallbackListener();
   }
 
-  /// Native side (OverlayService → MainActivity) calls
-  /// `showOverlayWindow` when the user taps the floating bubble.
-  /// We respond by spinning up the flutter_overlay_window engine —
-  /// that's the recording pill / result card that sits on top of
-  /// whatever app the user is currently in.
-  void _setupOverlayShowListener() {
+  /// Fallback path for the bubble. Primary path is direct invocation
+  /// on the cached bg Flutter engine from native (zero flash). If that
+  /// fails (cold start without MyApplication, etc.), OverlayService
+  /// re-routes through MainActivity which hits this listener.
+  void _setupOverlayFallbackListener() {
     _overlayChannel.setMethodCallHandler((call) async {
       if (call.method == 'showOverlayWindow') {
         try {
           final isShowing = await FlutterOverlayWindow.isActive();
-          if (isShowing == true) {
-            // Already up — bring focus, don't double-instantiate.
-            return null;
-          }
+          if (isShowing == true) return null;
           await FlutterOverlayWindow.showOverlay(
             height: 220,
             width: WindowSize.matchParent,
             alignment: OverlayAlignment.center,
             flag: OverlayFlag.defaultFlag,
             overlayTitle: 'VoiceBubble',
-            overlayContent: 'Recording…',
+            overlayContent: 'Recording',
             enableDrag: false,
           );
         } catch (e) {
-          debugPrint('❌ Failed to show overlay window: $e');
+          debugPrint('❌ Overlay fallback path failed: $e');
         }
       }
       return null;

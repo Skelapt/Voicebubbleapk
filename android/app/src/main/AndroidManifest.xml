@@ -24,7 +24,7 @@
     
     <application
         android:label="VoiceBubble"
-        android:name="${applicationName}"
+        android:name="com.voicebubble.app.MyApplication"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:extractNativeLibs="false">
