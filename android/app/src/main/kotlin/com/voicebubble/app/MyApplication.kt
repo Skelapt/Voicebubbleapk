@@ -1,12 +1,12 @@
 package com.voicebubble.app
 
 import android.util.Log
+import flutter.overlay.window.flutter_overlay_window.FlutterOverlayWindowPlugin
 import io.flutter.FlutterInjector
 import io.flutter.app.FlutterApplication
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.dart.DartExecutor
-import io.flutter.plugins.GeneratedPluginRegistrant
 
 /**
  * Custom Application that pre-warms a cached background Flutter engine.
@@ -42,22 +42,42 @@ class MyApplication : FlutterApplication() {
             loader.ensureInitializationComplete(this, null)
             DebugLog.log(this, "App", "FlutterLoader init complete")
 
-            val engine = FlutterEngine(this)
-            DebugLog.log(this, "App", "FlutterEngine constructed")
-
-            // CRITICAL: the FlutterEngine constructor's reflective
-            // auto-registration of plugins is unreliable on engines
-            // created outside of FlutterActivity. Without this explicit
-            // call, flutter_overlay_window's MethodCallHandler doesn't
-            // attach to this engine, and any `showOverlay` invocation
-            // comes back as `notImplemented`. This was THE bug — every
-            // bubble tap fired but the plugin never received it.
-            GeneratedPluginRegistrant.registerWith(engine)
-            DebugLog.log(
-                this,
-                "App",
-                "GeneratedPluginRegistrant.registerWith called → plugins attached"
+            // Disable the implicit reflective plugin registration —
+            // GeneratedPluginRegistrant.registerWith() pulls in EVERY
+            // pubspec plugin, and at least one of them
+            // (super_native_extensions) throws NoClassDefFoundError on
+            // engines created outside of a FlutterActivity, which
+            // nukes the whole engine warm-up. Build the engine without
+            // auto-registration so we control exactly which plugins
+            // attach.
+            val engine = FlutterEngine(
+                /* context = */ this,
+                /* dartVmArgs = */ null,
+                /* automaticallyRegisterPlugins = */ false
             )
+            DebugLog.log(this, "App", "FlutterEngine constructed (no auto-register)")
+
+            // The bg engine only needs flutter_overlay_window's plugin
+            // attached — that's the only channel
+            // (`x-slayer/overlay_channel`) we invoke from native code
+            // when the bubble is tapped. Registering it explicitly
+            // avoids the noise + side effects of all the other
+            // plugins (Firebase, IAP, ML Kit, Hive, etc.) that have
+            // no business running on a background engine.
+            try {
+                engine.plugins.add(FlutterOverlayWindowPlugin())
+                DebugLog.log(
+                    this,
+                    "App",
+                    "FlutterOverlayWindowPlugin attached to bg engine"
+                )
+            } catch (e: Throwable) {
+                DebugLog.log(
+                    this,
+                    "App",
+                    "FlutterOverlayWindowPlugin attach FAILED: ${e.javaClass.simpleName} ${e.message}"
+                )
+            }
 
             val entrypoint = DartExecutor.DartEntrypoint(
                 loader.findAppBundlePath(),
