@@ -266,69 +266,21 @@ class OverlayService : Service() {
                 .apply()
             DebugLog.log(this, "Bubble", "Wrote flutter.show_presets_on_open=$showPresets")
 
-            val engine = FlutterEngineCache.getInstance()
-                .get(MyApplication.BG_ENGINE_ID)
-            if (engine != null) {
-                DebugLog.log(this, "Bubble", "BG engine cache HIT — direct showOverlay path")
-                // Direct invocation. Stays on the binder thread of the
-                // method channel, which is fine — flutter_overlay_window
-                // marshals its own work onto the main thread internally.
-                Handler(Looper.getMainLooper()).post {
-                    val args = mapOf(
-                        "height" to 220,
-                        "width" to -1,            // matchParent
-                        "alignment" to "center",
-                        "flag" to "defaultFlag",
-                        "overlayTitle" to "VoiceBubble",
-                        "overlayContent" to "Recording",
-                        "enableDrag" to false,
-                        "notificationVisibility" to "visibilityPrivate",
-                        "positionGravity" to "none",
-                        "startPosition" to null
-                    )
-                    MethodChannel(
-                        engine.dartExecutor.binaryMessenger,
-                        "x-slayer/overlay_channel"
-                    ).invokeMethod(
-                        "showOverlay",
-                        args,
-                        object : MethodChannel.Result {
-                            override fun success(result: Any?) {
-                                DebugLog.log(
-                                    this@OverlayService,
-                                    "Bubble",
-                                    "showOverlay -> success: $result"
-                                )
-                            }
-
-                            override fun error(
-                                code: String,
-                                msg: String?,
-                                details: Any?
-                            ) {
-                                DebugLog.log(
-                                    this@OverlayService,
-                                    "Bubble",
-                                    "showOverlay -> error code=$code msg=$msg"
-                                )
-                            }
-
-                            override fun notImplemented() {
-                                DebugLog.log(
-                                    this@OverlayService,
-                                    "Bubble",
-                                    "showOverlay -> notImplemented"
-                                )
-                            }
-                        }
-                    )
-                    Log.d(TAG, "showOverlay invoked on cached engine (presets=$showPresets)")
-                }
+            // Direct path: bypass the FlutterOverlayWindowPlugin's
+            // MethodChannel entirely (which on a manually-cached
+            // background engine kept returning `notImplemented` even
+            // after the plugin was attached) and just do exactly what
+            // the plugin's `showOverlay` handler does — set the
+            // package-private WindowSetup statics by reflection,
+            // then start the plugin's own OverlayService directly.
+            // Same outcome, no method-channel handshake to break.
+            if (startPluginOverlayDirect()) {
+                DebugLog.log(this, "Bubble", "Plugin OverlayService started directly (no method channel)")
                 return
             }
 
-            DebugLog.log(this, "Bubble", "BG engine cache MISS — Activity-bridge fallback")
-            Log.w(TAG, "Background engine missing — falling back via MainActivity bridge")
+            DebugLog.log(this, "Bubble", "Direct service start failed — Activity-bridge fallback")
+            Log.w(TAG, "Direct service start failed — falling back via MainActivity bridge")
             val intent = Intent(this, MainActivity::class.java).apply {
                 action = "SHOW_OVERLAY_POPUP"
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -343,6 +295,67 @@ class OverlayService : Service() {
                 "Bubble",
                 "showRecordingOverlay threw ${e.javaClass.simpleName}: ${e.message}"
             )
+        }
+    }
+
+    /**
+     * Replicates `flutter_overlay_window`'s `showOverlay` plugin
+     * handler in pure native code so we don't depend on its
+     * MethodChannel being reachable. Steps mirror the upstream
+     * source:
+     *   1. Set the package-private statics on `WindowSetup`.
+     *   2. Build an Intent for the plugin's `OverlayService` with
+     *      the standard startX/startY extras.
+     *   3. Call `startService(intent)`.
+     *
+     * Returns true on success, false if anything (reflection,
+     * service start, missing class) blocks the call so the caller
+     * can fall back to the Activity-bridge.
+     */
+    private fun startPluginOverlayDirect(): Boolean {
+        return try {
+            val wsCls = Class.forName(
+                "flutter.overlay.window.flutter_overlay_window.WindowSetup"
+            )
+            fun setStatic(name: String, value: Any?) {
+                val f = wsCls.getDeclaredField(name)
+                f.isAccessible = true
+                f.set(null, value)
+            }
+            // Defaults that mirror the showOverlay arg map we used to
+            // pass through the method channel.
+            setStatic("width", -1)                                  // matchParent
+            setStatic("height", 220)
+            setStatic("enableDrag", false)
+            setStatic("gravity", android.view.Gravity.CENTER)
+            setStatic("flag", android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+            setStatic("overlayTitle", "VoiceBubble")
+            setStatic("overlayContent", "Recording")
+            setStatic("positionGravity", "none")
+            // notificationVisibility: NotificationCompat.VISIBILITY_PRIVATE = 0
+            setStatic("notificationVisibility", 0)
+            DebugLog.log(this, "Bubble", "WindowSetup statics applied via reflection")
+
+            val intent = Intent().apply {
+                setClassName(
+                    packageName,
+                    "flutter.overlay.window.flutter_overlay_window.OverlayService"
+                )
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra("startX", -6)  // OverlayConstants.DEFAULT_XY
+                putExtra("startY", -6)
+            }
+            startService(intent)
+            true
+        } catch (e: Throwable) {
+            DebugLog.log(
+                this,
+                "Bubble",
+                "Direct plugin start threw ${e.javaClass.simpleName}: ${e.message}"
+            )
+            Log.e(TAG, "Direct plugin OverlayService start failed", e)
+            false
         }
     }
 
