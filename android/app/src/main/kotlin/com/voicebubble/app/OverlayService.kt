@@ -91,10 +91,24 @@ class OverlayService : Service() {
             // Create notification channel
             createNotificationChannel()
             
-            // Start foreground service FIRST before creating overlay
+            // Start foreground service FIRST before creating overlay.
+            // On Android 14+ (API 34) the manifest declares the
+            // service type as `specialUse|microphone`, and we must
+            // pass the matching bitmask to startForeground or the
+            // OS rejects the start with InvalidForegroundServiceTypeException.
             val notification = createNotification()
-            startForeground(NOTIFICATION_ID, notification)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
+                        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
             Log.d(TAG, "Foreground service started")
+            DebugLog.log(this, "Bubble", "startForeground done with specialUse|microphone")
             
             // Initialize window manager
             windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -263,10 +277,22 @@ class OverlayService : Service() {
                 DebugLog.log(this, "NativeOverlay", "Overlay already showing — coalesced")
                 return
             }
-            RecordingOverlay.show(this) {
-                DebugLog.log(this, "NativeOverlay", "Cancel tapped → hide overlay")
-                RecordingOverlay.hide()
-            }
+            RecordingOverlay.show(
+                this,
+                onComplete = { audioPath ->
+                    DebugLog.log(
+                        this,
+                        "NativeOverlay",
+                        "Stop tapped → audio captured: $audioPath"
+                    )
+                    // NB3 will pick up here and POST the file to the
+                    // backend for transcription + AI rewrite. For now
+                    // we just confirm the file landed.
+                },
+                onCancel = {
+                    DebugLog.log(this, "NativeOverlay", "Cancel tapped → discarded")
+                }
+            )
             DebugLog.log(this, "NativeOverlay", "Native overlay added to WindowManager")
         } catch (e: Throwable) {
             DebugLog.log(

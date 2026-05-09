@@ -11,6 +11,11 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <!-- Required so the bubble's foreground service can record audio
+         from the native recording overlay (NB2+). Android 14+ refuses
+         MediaRecorder.start from a foreground service that doesn't
+         declare microphone type + holds this permission. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="com.android.vending.BILLING"/>
     
@@ -139,11 +144,15 @@
             </intent-filter>
         </activity>
         
-        <!-- Overlay Service for floating bubble -->
+        <!-- Overlay Service for floating bubble + native recording.
+             Combined service type so we can BOTH host the bubble
+             (specialUse) AND start MediaRecorder from the recording
+             overlay we host (microphone). Android 14+ requires the
+             type to match the actual usage. -->
         <service
             android:name="com.voicebubble.app.OverlayService"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse|microphone">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Floating bubble overlay for quick voice recording" />
