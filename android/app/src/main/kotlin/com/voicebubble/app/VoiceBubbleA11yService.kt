@@ -74,6 +74,7 @@ class VoiceBubbleA11yService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         Log.d(TAG, "Service connected")
+        DebugLog.log(this, "A11y", "AccessibilityService connected")
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
@@ -109,16 +110,21 @@ class VoiceBubbleA11yService : AccessibilityService() {
      */
     fun setFocusedFieldText(text: String): Boolean {
         if (text.isEmpty()) return false
+        DebugLog.log(this, "A11y", "setFocusedFieldText called (len=${text.length}) pkg=$lastFocusedPackage")
 
         val node = findFocusedEditable() ?: run {
             Log.w(TAG, "No focused editable node — caller should fall back to clipboard")
+            DebugLog.log(this, "A11y", "No focused editable node found → caller will use clipboard")
             return false
         }
 
         return try {
-            val ok = injectViaSetText(node, text) || injectViaPaste(node, text)
-            if (!ok) Log.w(TAG, "Both SET_TEXT and PASTE failed for node $node")
-            ok
+            val viaSet = injectViaSetText(node, text)
+            DebugLog.log(this, "A11y", "ACTION_SET_TEXT result: $viaSet")
+            if (viaSet) return true
+            val viaPaste = injectViaPaste(node, text)
+            DebugLog.log(this, "A11y", "ACTION_PASTE fallback result: $viaPaste")
+            viaPaste
         } finally {
             try { node.recycle() } catch (_: Throwable) {}
         }

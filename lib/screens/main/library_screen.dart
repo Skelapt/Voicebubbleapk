@@ -30,9 +30,11 @@ import '../../services/continue_service.dart';
 import '../../services/analytics_service.dart';
 import '../../services/native_overlay_service.dart';
 import '../../services/ai_service.dart';
+import '../../services/debug_log_service.dart';
 import '../../services/feature_gate.dart';
 import '../../services/text_injection_service.dart';
 import '../settings/settings_screen.dart';
+import '../settings/debug_log_screen.dart';
 import '../paywall/paywall_screen.dart';
 import '../onboarding/accessibility_permission_screen.dart';
 import 'project_detail_screen.dart';
@@ -94,6 +96,8 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
         final started = await NativeOverlayService.showOverlay();
         if (started && mounted) {
           AnalyticsService().logOverlayActivated(isEnabled: true);
+          await DebugLogService()
+              .log('App', 'Bubble activated by user (NativeOverlayService.showOverlay → true)');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('✓ Bubble activated! Look on the left side'),
@@ -188,6 +192,8 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
 
         if (started && mounted) {
           AnalyticsService().logOverlayActivated(isEnabled: true);
+          await DebugLogService()
+              .log('App', 'Bubble activated by user (NativeOverlayService.showOverlay → true)');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('✓ Bubble activated! Look on the left side'),
@@ -674,6 +680,34 @@ class _LibraryScreenState extends State<LibraryScreen> with WidgetsBindingObserv
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.workspace_premium, color: Color(0xFFFFD700), size: 18),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Debug log entry — temporary diagnostic surface
+                          // for the bubble feature. Remove before release.
+                          GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const DebugLogScreen()),
+                            ),
+                            onLongPress: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const DebugLogScreen()),
+                            ),
+                            child: Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7C6AE8).withOpacity(0.18),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFF7C6AE8).withOpacity(0.5),
+                                ),
+                              ),
+                              child: const Icon(Icons.bug_report_rounded,
+                                  color: Color(0xFF7C6AE8), size: 18),
                             ),
                           ),
                           const SizedBox(width: 6),
