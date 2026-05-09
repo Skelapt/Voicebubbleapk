@@ -6,6 +6,7 @@ import io.flutter.app.FlutterApplication
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.dart.DartExecutor
+import io.flutter.plugins.GeneratedPluginRegistrant
 
 /**
  * Custom Application that pre-warms a cached background Flutter engine.
@@ -42,7 +43,22 @@ class MyApplication : FlutterApplication() {
             DebugLog.log(this, "App", "FlutterLoader init complete")
 
             val engine = FlutterEngine(this)
-            DebugLog.log(this, "App", "FlutterEngine constructed (plugins auto-registered)")
+            DebugLog.log(this, "App", "FlutterEngine constructed")
+
+            // CRITICAL: the FlutterEngine constructor's reflective
+            // auto-registration of plugins is unreliable on engines
+            // created outside of FlutterActivity. Without this explicit
+            // call, flutter_overlay_window's MethodCallHandler doesn't
+            // attach to this engine, and any `showOverlay` invocation
+            // comes back as `notImplemented`. This was THE bug — every
+            // bubble tap fired but the plugin never received it.
+            GeneratedPluginRegistrant.registerWith(engine)
+            DebugLog.log(
+                this,
+                "App",
+                "GeneratedPluginRegistrant.registerWith called → plugins attached"
+            )
+
             val entrypoint = DartExecutor.DartEntrypoint(
                 loader.findAppBundlePath(),
                 "bgEngineMain"
