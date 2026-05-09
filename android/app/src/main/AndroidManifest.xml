@@ -148,7 +148,24 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Floating bubble overlay for quick voice recording" />
         </service>
-        
+
+        <!-- Accessibility Service: in-place text injection into any app's
+             focused EditText. The user enables this once via Settings →
+             Accessibility → VoiceBubble. Without it, the bubble falls back
+             to clipboard + manual paste. -->
+        <service
+            android:name="com.voicebubble.app.VoiceBubbleA11yService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/voicebubble_a11y_service" />
+        </service>
+
         <!-- Boot Receiver to restart overlay service after reboot -->
         <receiver
             android:name="com.voicebubble.app.BootReceiver"
