@@ -149,6 +149,21 @@
                 android:value="Floating bubble overlay for quick voice recording" />
         </service>
 
+        <!-- flutter_overlay_window plugin's own OverlayService.
+             Hosts the FlutterView (recording pill / result card) as a
+             WindowManager overlay over whichever app the user is in.
+             MUST be declared with this exact class name and a foreground
+             service type — without this, FlutterOverlayWindow.showOverlay
+             fails silently and the bubble appears to do nothing. -->
+        <service
+            android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating recording pill rendered over other apps" />
+        </service>
+
         <!-- Accessibility Service: in-place text injection into any app's
              focused EditText. The user enables this once via Settings →
              Accessibility → VoiceBubble. Without it, the bubble falls back
