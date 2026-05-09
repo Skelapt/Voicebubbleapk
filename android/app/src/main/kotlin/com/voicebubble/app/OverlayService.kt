@@ -341,13 +341,31 @@ class OverlayService : Service() {
                     packageName,
                     "flutter.overlay.window.flutter_overlay_window.OverlayService"
                 )
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra("startX", -6)  // OverlayConstants.DEFAULT_XY
                 putExtra("startY", -6)
             }
-            startService(intent)
-            true
+
+            // The plugin's OverlayService is declared in the manifest
+            // with `foregroundServiceType="specialUse"`. On Android 8+
+            // (API 26+) such services must be started via
+            // `startForegroundService` — using plain `startService` can
+            // be silently dropped by the system, which exactly matches
+            // the symptom (no overlay paints, no Dart entry runs, no
+            // error). Capture the returned ComponentName so we know if
+            // the system actually scheduled it.
+            val started: android.content.ComponentName? =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    androidx.core.content.ContextCompat.startForegroundService(this, intent)
+                } else {
+                    @Suppress("DEPRECATION")
+                    startService(intent)
+                }
+            DebugLog.log(
+                this,
+                "Bubble",
+                "startForegroundService returned: ${started?.flattenToShortString() ?: "null"}"
+            )
+            started != null
         } catch (e: Throwable) {
             DebugLog.log(
                 this,
