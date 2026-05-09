@@ -355,7 +355,7 @@ class OverlayService : Service() {
             // the system actually scheduled it.
             val started: android.content.ComponentName? =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    androidx.core.content.ContextCompat.startForegroundService(this, intent)
+                    startForegroundService(intent)
                 } else {
                     @Suppress("DEPRECATION")
                     startService(intent)
