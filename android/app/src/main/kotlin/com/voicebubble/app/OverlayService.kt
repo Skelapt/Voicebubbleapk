@@ -85,6 +85,7 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "OverlayService onCreate")
+        DebugLog.log(this, "Bubble", "OverlayService.onCreate (bubble service starting)")
         
         try {
             // Create notification channel
@@ -219,6 +220,7 @@ class OverlayService : Service() {
             // the same MainActivity intent but writes a flag first so
             // the overlay opens straight into preset selection).
             container.setOnClickListener {
+                DebugLog.log(this, "Bubble", "Tap detected (short)")
                 showRecordingOverlay(showPresets = false)
             }
             
@@ -251,6 +253,7 @@ class OverlayService : Service() {
      * works — just with the old flash.
      */
     private fun showRecordingOverlay(showPresets: Boolean) {
+        DebugLog.log(this, "Bubble", "showRecordingOverlay(showPresets=$showPresets)")
         try {
             // Write the preset-mode flag into the same SharedPreferences
             // file the Dart `shared_preferences` plugin reads from. The
@@ -261,10 +264,12 @@ class OverlayService : Service() {
                 .edit()
                 .putBoolean("flutter.show_presets_on_open", showPresets)
                 .apply()
+            DebugLog.log(this, "Bubble", "Wrote flutter.show_presets_on_open=$showPresets")
 
             val engine = FlutterEngineCache.getInstance()
                 .get(MyApplication.BG_ENGINE_ID)
             if (engine != null) {
+                DebugLog.log(this, "Bubble", "BG engine cache HIT — direct showOverlay path")
                 // Direct invocation. Stays on the binder thread of the
                 // method channel, which is fine — flutter_overlay_window
                 // marshals its own work onto the main thread internally.
@@ -284,12 +289,45 @@ class OverlayService : Service() {
                     MethodChannel(
                         engine.dartExecutor.binaryMessenger,
                         "x-slayer/overlay_channel"
-                    ).invokeMethod("showOverlay", args)
+                    ).invokeMethod(
+                        "showOverlay",
+                        args,
+                        object : MethodChannel.Result {
+                            override fun success(result: Any?) {
+                                DebugLog.log(
+                                    this@OverlayService,
+                                    "Bubble",
+                                    "showOverlay -> success: $result"
+                                )
+                            }
+
+                            override fun error(
+                                code: String,
+                                msg: String?,
+                                details: Any?
+                            ) {
+                                DebugLog.log(
+                                    this@OverlayService,
+                                    "Bubble",
+                                    "showOverlay -> error code=$code msg=$msg"
+                                )
+                            }
+
+                            override fun notImplemented() {
+                                DebugLog.log(
+                                    this@OverlayService,
+                                    "Bubble",
+                                    "showOverlay -> notImplemented"
+                                )
+                            }
+                        }
+                    )
                     Log.d(TAG, "showOverlay invoked on cached engine (presets=$showPresets)")
                 }
                 return
             }
 
+            DebugLog.log(this, "Bubble", "BG engine cache MISS — Activity-bridge fallback")
             Log.w(TAG, "Background engine missing — falling back via MainActivity bridge")
             val intent = Intent(this, MainActivity::class.java).apply {
                 action = "SHOW_OVERLAY_POPUP"
@@ -300,6 +338,11 @@ class OverlayService : Service() {
             startActivity(intent)
         } catch (e: Exception) {
             Log.e(TAG, "Error showing recording overlay", e)
+            DebugLog.log(
+                this,
+                "Bubble",
+                "showRecordingOverlay threw ${e.javaClass.simpleName}: ${e.message}"
+            )
         }
     }
 
@@ -316,6 +359,7 @@ class OverlayService : Service() {
             if (!isMoved) {
                 longPressFired = true
                 Log.d(TAG, "Bubble long-press → preset fan")
+                DebugLog.log(this@OverlayService, "Bubble", "Long-press detected (400ms held)")
                 // Subtle haptic via the view itself so the user feels
                 // the long-press register before the overlay paints.
                 overlayView?.performHapticFeedback(

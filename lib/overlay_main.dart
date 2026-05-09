@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models/preset.dart';
 import 'services/ai_service.dart';
+import 'services/debug_log_service.dart';
 import 'services/text_injection_service.dart';
 
 /// Entry point for the floating recording overlay isolate. Spun up
@@ -19,6 +20,8 @@ import 'services/text_injection_service.dart';
 @pragma('vm:entry-point')
 void overlayMain() {
   WidgetsFlutterBinding.ensureInitialized();
+  DebugLogService()
+      .log('Overlay', 'overlayMain entry-point reached (overlay isolate)');
   runApp(const _OverlayApp());
 }
 
@@ -137,17 +140,14 @@ class _RecordingFlowState extends State<_RecordingFlow>
     bool showPresets = false;
     try {
       final prefs = await SharedPreferences.getInstance();
-      // The native side writes to a separate shared_prefs file
-      // (voicebubble_overlay_prefs); SharedPreferences uses the
-      // default "FlutterSharedPreferences" by default. We instead
-      // mirror the flag through that default file too — simpler than
-      // wiring a custom name. Native side writes the value via the
-      // method-channel on the OverlayPlugin (added below).
       showPresets = prefs.getBool('show_presets_on_open') ?? false;
       if (showPresets) {
         await prefs.setBool('show_presets_on_open', false);
       }
     } catch (_) {}
+
+    await DebugLogService()
+        .log('Overlay', 'Bootstrap: showPresets=$showPresets');
 
     if (!mounted) return;
     if (showPresets) {
@@ -200,8 +200,11 @@ class _RecordingFlowState extends State<_RecordingFlow>
 
   Future<void> _startRecording() async {
     HapticFeedback.lightImpact();
+    await DebugLogService().log('Overlay', '_startRecording invoked');
     try {
       if (!await _recorder.hasPermission()) {
+        await DebugLogService()
+            .log('Overlay', 'Mic permission MISSING — failing to error phase');
         await _failTo('Microphone permission denied');
         return;
       }
@@ -216,14 +219,16 @@ class _RecordingFlowState extends State<_RecordingFlow>
         ),
         path: _audioPath!,
       );
+      await DebugLogService()
+          .log('Overlay', 'Recorder started → $_audioPath');
       _ampSub = _recorder
           .onAmplitudeChanged(const Duration(milliseconds: 80))
           .listen((amp) {
-        // amp.current is roughly -45..0 dBFS. Map to 0.1..1.0.
         final norm = ((amp.current + 45) / 45).clamp(0.1, 1.0);
         _targetLevel = norm.toDouble();
       });
     } catch (e) {
+      await DebugLogService().log('Overlay', '_startRecording threw: $e');
       await _failTo('Could not start recording');
     }
   }
@@ -333,13 +338,18 @@ class _RecordingFlowState extends State<_RecordingFlow>
     setState(() => _phase = _Phase.inserting);
 
     final ok = await TextInjectionService.injectText(_resultText);
+    await DebugLogService()
+        .log('Overlay', 'Insert tapped — injectText returned $ok');
     if (!ok) {
       // Fallback: clipboard. The user can paste manually wherever they want.
       await Clipboard.setData(ClipboardData(text: _resultText));
+      await DebugLogService()
+          .log('Overlay', 'Fell back to clipboard.setData');
     }
     // Brief breath so the user sees the transition land, then close.
     await Future.delayed(const Duration(milliseconds: 180));
     await FlutterOverlayWindow.closeOverlay();
+    await DebugLogService().log('Overlay', 'Overlay closed after insert/copy');
   }
 
   Future<void> _failTo(String msg) async {

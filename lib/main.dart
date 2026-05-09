@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'providers/app_state_provider.dart';
 import 'providers/theme_provider.dart';
+import 'services/debug_log_service.dart';
 import 'services/subscription_service.dart';
 import 'services/storage_service.dart';
 import 'services/reminder_manager.dart';
@@ -21,7 +22,9 @@ import 'services/retention_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  await DebugLogService().log('App', 'main() entered (main isolate)');
+
   // Initialize Firebase - REQUIRED for App Store
   await Firebase.initializeApp();
   debugPrint('✅ Firebase initialized successfully');
@@ -62,6 +65,10 @@ void bgEngineMain() {
   // Keep the isolate alive forever — plugins are now reachable from
   // any Service in the same process via FlutterEngineCache.
   // No UI, no Firebase init, no app state. Pure plumbing.
+  DebugLogService().log(
+    'BgEngine',
+    'bgEngineMain entry-point reached — plugins ready on cached engine',
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -91,8 +98,12 @@ class _MyAppState extends State<MyApp> {
   void _setupOverlayFallbackListener() {
     _overlayChannel.setMethodCallHandler((call) async {
       if (call.method == 'showOverlayWindow') {
+        await DebugLogService()
+            .log('Bridge', 'Dart received showOverlayWindow (fallback path)');
         try {
           final isShowing = await FlutterOverlayWindow.isActive();
+          await DebugLogService()
+              .log('Bridge', 'FlutterOverlayWindow.isActive=$isShowing');
           if (isShowing == true) return null;
           await FlutterOverlayWindow.showOverlay(
             height: 220,
@@ -103,8 +114,12 @@ class _MyAppState extends State<MyApp> {
             overlayContent: 'Recording',
             enableDrag: false,
           );
+          await DebugLogService()
+              .log('Bridge', 'FlutterOverlayWindow.showOverlay returned');
         } catch (e) {
           debugPrint('❌ Overlay fallback path failed: $e');
+          await DebugLogService()
+              .log('Bridge', 'Fallback showOverlay threw: $e');
         }
       }
       return null;

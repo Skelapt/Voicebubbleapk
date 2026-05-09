@@ -31,6 +31,7 @@ class MyApplication : FlutterApplication() {
 
     override fun onCreate() {
         super.onCreate()
+        DebugLog.log(this, "App", "MyApplication.onCreate — process started")
         try {
             // Make sure Flutter's native libraries are loaded before we
             // try to spin up an engine. FlutterLoader is the modern
@@ -38,8 +39,10 @@ class MyApplication : FlutterApplication() {
             val loader = FlutterInjector.instance().flutterLoader()
             loader.startInitialization(this)
             loader.ensureInitializationComplete(this, null)
+            DebugLog.log(this, "App", "FlutterLoader init complete")
 
             val engine = FlutterEngine(this)
+            DebugLog.log(this, "App", "FlutterEngine constructed (plugins auto-registered)")
             val entrypoint = DartExecutor.DartEntrypoint(
                 loader.findAppBundlePath(),
                 "bgEngineMain"
@@ -47,10 +50,18 @@ class MyApplication : FlutterApplication() {
             engine.dartExecutor.executeDartEntrypoint(entrypoint)
             FlutterEngineCache.getInstance().put(BG_ENGINE_ID, engine)
             Log.d(TAG, "Background Flutter engine warmed up (id=$BG_ENGINE_ID)")
+            DebugLog.log(
+                this,
+                "App",
+                "BG engine warm + cached as '$BG_ENGINE_ID'"
+            )
         } catch (e: Throwable) {
-            // Never crash app start over this. The bubble overlay flow
-            // gracefully falls back to the Activity-bridge path.
             Log.e(TAG, "Failed to warm background engine", e)
+            DebugLog.log(
+                this,
+                "App",
+                "BG engine warm-up FAILED: ${e.javaClass.simpleName} ${e.message}"
+            )
         }
     }
 }
