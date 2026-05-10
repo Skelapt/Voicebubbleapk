@@ -294,17 +294,18 @@ class OverlayService : Service() {
         var longPressFired = false
 
         val handler = Handler(Looper.getMainLooper())
+        // Long-press now does EXACTLY what tap does — show the recording
+        // overlay. No MainActivity bridge, no preset fan. The result
+        // panel itself exposes the preset re-rewrite chips so there's
+        // no need for a separate long-press path.
         val longPressRunnable = Runnable {
             if (!isMoved) {
                 longPressFired = true
-                Log.d(TAG, "Bubble long-press → preset fan")
-                DebugLog.log(this@OverlayService, "Bubble", "Long-press detected (400ms held)")
-                // Subtle haptic via the view itself so the user feels
-                // the long-press register before the overlay paints.
+                DebugLog.log(this@OverlayService, "Bubble", "Long-press → same overlay as tap")
                 overlayView?.performHapticFeedback(
                     android.view.HapticFeedbackConstants.LONG_PRESS
                 )
-                showRecordingOverlay(showPresets = true)
+                showRecordingOverlay(showPresets = false)
             }
         }
 

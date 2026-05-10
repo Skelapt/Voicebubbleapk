@@ -75,10 +75,21 @@ object BackendClient {
     }
 
     /**
-     * Run the Magic preset on the transcript, return the polished
-     * text + (optional) human-readable intent label.
+     * Run an arbitrary preset on the transcript. `presetId` is the
+     * server-side string (`magic` / `quick_reply` /
+     * `email_professional` / `instagram_caption` …). Returns the
+     * polished text + (optional) human-readable intent label.
+     *
+     * Lets the result panel re-render the SAME recording in a
+     * different tone without re-recording — chip taps in the result
+     * UI hit this.
      */
-    fun rewriteMagic(ctx: Context, text: String, language: String = "en"): MagicResult {
+    fun rewriteWithPreset(
+        ctx: Context,
+        text: String,
+        presetId: String,
+        language: String = "en",
+    ): MagicResult {
         val conn = (URL("$BASE_URL/api/rewrite/batch").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
@@ -91,7 +102,7 @@ object BackendClient {
         try {
             val body = JSONObject().apply {
                 put("text", text)
-                put("presetId", "magic")
+                put("presetId", presetId)
                 put("language", language)
             }.toString()
             conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
@@ -99,7 +110,7 @@ object BackendClient {
             val code = conn.responseCode
             if (code !in 200..299) {
                 val err = conn.errorStream?.bufferedReader()?.readText().orEmpty()
-                throw RuntimeException("rewrite HTTP $code: $err")
+                throw RuntimeException("rewrite[$presetId] HTTP $code: $err")
             }
             val responseBody = conn.inputStream.bufferedReader().readText()
             val json = JSONObject(responseBody)
@@ -108,11 +119,18 @@ object BackendClient {
             DebugLog.log(
                 ctx,
                 "Backend",
-                "Rewrite ok (label=$label, ${polished.length} chars)"
+                "Rewrite[$presetId] ok (label=$label, ${polished.length} chars)"
             )
             return MagicResult(text = polished, label = label)
         } finally {
             conn.disconnect()
         }
     }
+
+    /**
+     * Convenience wrapper around [rewriteWithPreset] for the Magic
+     * preset (auto-intent detection).
+     */
+    fun rewriteMagic(ctx: Context, text: String, language: String = "en"): MagicResult =
+        rewriteWithPreset(ctx, text, "magic", language)
 }
