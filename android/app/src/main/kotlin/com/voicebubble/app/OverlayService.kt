@@ -268,31 +268,12 @@ class OverlayService : Service() {
      */
     private fun showRecordingOverlay(showPresets: Boolean) {
         DebugLog.log(this, "Bubble", "showRecordingOverlay(showPresets=$showPresets)")
-
-        // Native path: just add a plain Android View to WindowManager
-        // — same primitive the bubble itself uses. No Flutter engine,
-        // no isolate, no plugin, no method channel. Bulletproof.
         try {
             if (RecordingOverlay.isShowing()) {
                 DebugLog.log(this, "NativeOverlay", "Overlay already showing — coalesced")
                 return
             }
-            RecordingOverlay.show(
-                this,
-                onComplete = { audioPath ->
-                    DebugLog.log(
-                        this,
-                        "NativeOverlay",
-                        "Stop tapped → audio captured: $audioPath"
-                    )
-                    // NB3 will pick up here and POST the file to the
-                    // backend for transcription + AI rewrite. For now
-                    // we just confirm the file landed.
-                },
-                onCancel = {
-                    DebugLog.log(this, "NativeOverlay", "Cancel tapped → discarded")
-                }
-            )
+            RecordingOverlay.show(this)
             DebugLog.log(this, "NativeOverlay", "Native overlay added to WindowManager")
         } catch (e: Throwable) {
             DebugLog.log(

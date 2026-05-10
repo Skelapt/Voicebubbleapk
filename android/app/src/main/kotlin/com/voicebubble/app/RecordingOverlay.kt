@@ -1,6 +1,8 @@
 package com.voicebubble.app
 
 import android.animation.ValueAnimator
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -13,37 +15,49 @@ import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import java.io.File
 
 /**
- * Native floating overlay — the recording pill that paints over
- * whatever app the user is in. Same primitive as the bubble itself
- * (`WindowManager.addView`), no Flutter / isolate / plugin layer.
+ * Pure-native floating overlay — recording → polishing → result
+ * (with Insert / Retry / Cancel) → inserting → close. Same
+ * primitive as the bubble itself (`WindowManager.addView`), no
+ * Flutter / isolate / plugin layer.
  *
- * NB2: live recording. Premium design language —
- *   • Glass blur behind (Android 12+) so the underlying app stays
- *     legible but recedes.
- *   • Centered pill, capped at 320dp wide so it never feels like
- *     a slab.
- *   • Pulsing 6dp red "live" dot, no text label needed.
- *   • Mirrored 32-bar oscilloscope waveform driven off
- *     `MediaRecorder.maxAmplitude`.
- *   • 52dp purple stop button that *breathes* (subtle scale pulse)
- *     so it visually invites the tap. Soft halo glow.
- *   • Tiny 28dp cancel chip — secondary, never competes.
- *   • 220ms scale-fade in / 140ms scale-fade out so transitions
- *     feel composed, not jumpy.
+ * State machine:
+ *   1. RECORDING   — live waveform, breathing stop button.
+ *                    Stop tap → POLISHING.
+ *   2. POLISHING   — three breathing dots + spinner. HTTP calls
+ *                    (transcribe + magic rewrite) run on a worker
+ *                    Thread; on success → RESULT, on failure → ERROR.
+ *   3. RESULT      — intent badge, AI text, [↻ Retry][Insert ›].
+ *                    Insert calls VoiceBubbleA11yService to drop
+ *                    the text into the focused EditText of whatever
+ *                    app is in the foreground; falls back to the
+ *                    clipboard when no editable focus.
+ *   4. INSERTING   — green ✓ flash, brief breath, dismiss.
+ *   5. ERROR       — message + [↻ Retry] + ✕.
+ *
+ * The OUTER WindowManager view stays mounted across phases; we
+ * just swap the contents of the inner card so the pill morphs
+ * instead of jumping.
  */
 object RecordingOverlay {
 
     private const val TAG = "RecordingOverlay"
 
+    // ───────── State ─────────
+
     private var view: View? = null
+    private var card: LinearLayout? = null
+    private var ctxRef: Context? = null
     private var wm: WindowManager? = null
+
     private var recorder: MediaRecorder? = null
     private var audioFile: File? = null
     private var ampHandler: Handler? = null
@@ -54,32 +68,22 @@ object RecordingOverlay {
 
     fun isShowing(): Boolean = view != null
 
-    fun show(
-        ctx: Context,
-        onComplete: (audioPath: String) -> Unit,
-        onCancel: () -> Unit,
-    ) {
+    // ───────── Public API ─────────
+
+    fun show(ctx: Context) {
         if (view != null) return
 
+        val appCtx = ctx.applicationContext
+        ctxRef = appCtx
+
         val windowManager =
-            ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            appCtx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         wm = windowManager
 
-        val root = buildRecordingCard(
-            ctx,
-            onStop = {
-                val path = stopRecording(ctx)
-                hideAnimated {
-                    if (path != null) onComplete(path)
-                }
-            },
-            onCancel = {
-                stopRecording(ctx)?.let { p ->
-                    runCatching { File(p).delete() }
-                }
-                hideAnimated { onCancel() }
-            }
-        )
+        val container = FrameLayout(appCtx)
+        val cardView = buildCardShell(appCtx)
+        container.addView(cardView)
+        card = cardView
 
         val type =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -93,62 +97,50 @@ object RecordingOverlay {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
-            // FLAG_NOT_FOCUSABLE keeps the underlying app interactive.
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.CENTER
-        }
+        ).apply { gravity = Gravity.CENTER }
 
-        // Glass blur of underlying app on Android 12+. Adds the
-        // single-most-important "premium" cue — the underlying
-        // content stays visible but recedes. Older devices fall
-        // back to the card's own 88% solid fill.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             params.flags = params.flags or
                 WindowManager.LayoutParams.FLAG_BLUR_BEHIND
             params.blurBehindRadius = 28
         }
 
-        // Enter animation: subtle scale + fade. 220ms easeOutCubic.
-        root.alpha = 0f
-        root.scaleX = 0.94f
-        root.scaleY = 0.94f
-        windowManager.addView(root, params)
-        view = root
-        root.animate()
-            .alpha(1f)
-            .scaleX(1f)
-            .scaleY(1f)
+        container.alpha = 0f
+        container.scaleX = 0.94f
+        container.scaleY = 0.94f
+        windowManager.addView(container, params)
+        view = container
+        container.animate()
+            .alpha(1f).scaleX(1f).scaleY(1f)
             .setDuration(220)
             .setInterpolator(PathInterpolator(0.16f, 1f, 0.3f, 1f))
             .start()
 
-        startRecording(ctx)
+        // Land in the recording phase straight away.
+        renderRecording(appCtx)
+        startRecording(appCtx)
     }
 
     fun hide() = hideAnimated(null)
 
     private fun hideAnimated(after: (() -> Unit)?) {
-        ampPoll?.let { ampHandler?.removeCallbacks(it) }
-        ampHandler = null
-        ampPoll = null
+        cancelAmpPoll()
         cancelAnimators()
         waveform = null
         val v = view
         val windowManager = wm
+        view = null
+        card = null
+        ctxRef = null
+        wm = null
         if (v == null || windowManager == null) {
-            view = null
-            wm = null
             after?.invoke()
             return
         }
-        view = null
-        wm = null
         v.animate()
-            .alpha(0f)
-            .scaleX(0.96f)
-            .scaleY(0.96f)
+            .alpha(0f).scaleX(0.96f).scaleY(0.96f)
             .setDuration(140)
             .setInterpolator(PathInterpolator(0.4f, 0f, 1f, 1f))
             .withEndAction {
@@ -158,10 +150,14 @@ object RecordingOverlay {
             .start()
     }
 
+    private fun cancelAmpPoll() {
+        ampPoll?.let { ampHandler?.removeCallbacks(it) }
+        ampHandler = null
+        ampPoll = null
+    }
+
     private fun cancelAnimators() {
-        for (a in animators) {
-            try { a.cancel() } catch (_: Throwable) {}
-        }
+        for (a in animators) try { a.cancel() } catch (_: Throwable) {}
         animators.clear()
     }
 
@@ -169,17 +165,14 @@ object RecordingOverlay {
 
     private fun startRecording(ctx: Context) {
         try {
-            // The single-mission goal of the app: activate AND use
-            // the bubble. The 5-minute free reward is tied to
-            // exactly this moment — first time the user actually
-            // taps record via the bubble. Written into the same
-            // SharedPreferences file the Dart UsageService reads
-            // from on the next limit check, so the gift lands on
-            // the very first attempt.
+            // Single-mission reward — first ever bubble record unlocks
+            // 5 free minutes. Idempotent flag.
             grantBubbleFirstUseBonusIfNew(ctx)
 
-            val cacheDir = ctx.cacheDir
-            audioFile = File(cacheDir, "vb_native_${System.currentTimeMillis()}.m4a")
+            audioFile = File(
+                ctx.cacheDir,
+                "vb_native_${System.currentTimeMillis()}.m4a"
+            )
 
             val rec = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 MediaRecorder(ctx)
@@ -196,11 +189,7 @@ object RecordingOverlay {
             rec.prepare()
             rec.start()
             recorder = rec
-            DebugLog.log(
-                ctx,
-                "NativeOverlay",
-                "MediaRecorder started → ${audioFile!!.name}"
-            )
+            DebugLog.log(ctx, "NativeOverlay", "Recording → ${audioFile!!.name}")
 
             ampHandler = Handler(Looper.getMainLooper())
             ampPoll = object : Runnable {
@@ -216,82 +205,46 @@ object RecordingOverlay {
             DebugLog.log(
                 ctx,
                 "NativeOverlay",
-                "MediaRecorder start FAILED: ${e.javaClass.simpleName} ${e.message}"
+                "Recorder start FAILED: ${e.javaClass.simpleName} ${e.message}"
             )
             Log.e(TAG, "Failed to start MediaRecorder", e)
+            renderError(ctx, "Couldn't start recording.")
         }
     }
 
     private fun stopRecording(ctx: Context): String? {
-        ampPoll?.let { ampHandler?.removeCallbacks(it) }
-        ampHandler = null
-        ampPoll = null
+        cancelAmpPoll()
         return try {
             recorder?.stop()
             recorder?.release()
             recorder = null
             val path = audioFile?.absolutePath
-            DebugLog.log(ctx, "NativeOverlay", "MediaRecorder stopped → ${audioFile?.name}")
+            DebugLog.log(ctx, "NativeOverlay", "Recorder stopped")
             path
         } catch (e: Throwable) {
             Log.e(TAG, "MediaRecorder stop failed", e)
-            DebugLog.log(
-                ctx,
-                "NativeOverlay",
-                "MediaRecorder stop threw: ${e.javaClass.simpleName} ${e.message}"
-            )
             try { recorder?.release() } catch (_: Throwable) {}
             recorder = null
             null
         }
     }
 
-    // ───────── View construction ─────────
+    private fun discardAudio() {
+        audioFile?.let { f -> runCatching { f.delete() } }
+        audioFile = null
+    }
 
-    private fun buildRecordingCard(
-        ctx: Context,
-        onStop: () -> Unit,
-        onCancel: () -> Unit,
-    ): View {
-        val outer = FrameLayout(ctx).apply {
-            // Cap pill width at ~320dp so it never feels slab-y.
-            // Outer FrameLayout is WRAP_CONTENT so the card sets
-            // its own bounds.
-        }
+    // ───────── Phase rendering ─────────
 
-        val card = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(
-                dp(ctx, 16),
-                dp(ctx, 14),
-                dp(ctx, 12),
-                dp(ctx, 14)
-            )
-            background = GradientDrawable().apply {
-                cornerRadius = dp(ctx, 32).toFloat()
-                // 88% navy — feels solid where blur isn't supported,
-                // and lets blur do the heavy lifting where it is.
-                setColor(Color.parseColor("#E10D0D1A"))
-                setStroke(
-                    1, // 0.5dp visually after AA
-                    Color.parseColor("#14FFFFFF") // white @ 8%
-                )
-            }
-            // Soft drop shadow — Android elevation gets us part of
-            // the way; the blur-behind does the rest.
-            elevation = dp(ctx, 18).toFloat()
-            layoutParams = FrameLayout.LayoutParams(
-                dp(ctx, 320),
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
+    private fun renderRecording(ctx: Context) {
+        cancelAnimators()
+        val c = card ?: return
+        c.removeAllViews()
 
-        // ●  the live "REC" dot. No label, no text.
         val recDot = View(ctx).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#FF3B30")) // iOS-y red
+                setColor(Color.parseColor("#FF3B30"))
             }
             val s = dp(ctx, 7)
             layoutParams = LinearLayout.LayoutParams(s, s).apply {
@@ -299,21 +252,15 @@ object RecordingOverlay {
             }
             alpha = 0.4f
         }
-        startBreathing(recDot, fromAlpha = 0.35f, toAlpha = 1f, durationMs = 800)
+        startBreathingAlpha(recDot, 0.35f, 1f, 800)
 
-        // Live waveform, mirrored from center, fills remaining space.
         val wave = WaveformView(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(
-                0,
-                dp(ctx, 40),
-                1f
+                0, dp(ctx, 40), 1f
             )
         }
         waveform = wave
 
-        // Primary STOP. Breathing scale pulse so it visually
-        // invites the tap. Soft purple halo via large elevation +
-        // tinted shadow.
         val stop = TextView(ctx).apply {
             text = "■"
             setTextColor(Color.WHITE)
@@ -335,22 +282,266 @@ object RecordingOverlay {
             isClickable = true
             isFocusable = true
             setOnClickListener {
-                // Snap-down haptic feel: scale to 0.9 for 80ms, then
-                // run the actual stop.
-                animate()
-                    .scaleX(0.9f).scaleY(0.9f)
-                    .setDuration(80)
-                    .withEndAction {
-                        animate().scaleX(1f).scaleY(1f).setDuration(120).start()
-                        onStop()
-                    }.start()
+                animate().scaleX(0.9f).scaleY(0.9f).setDuration(80).withEndAction {
+                    animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                    onStopTapped(ctx)
+                }.start()
             }
         }
-        startBreathing(stop, fromScale = 0.97f, toScale = 1f, durationMs = 1500)
+        startBreathingScale(stop, 0.97f, 1f, 1500)
 
-        // Secondary CANCEL — smaller, quieter so it doesn't compete
-        // with stop.
-        val cancel = TextView(ctx).apply {
+        val cancel = cancelChip(ctx) { onCancelTapped(ctx) }
+
+        c.addView(recDot)
+        c.addView(wave)
+        c.addView(stop)
+        c.addView(cancel)
+    }
+
+    private fun renderPolishing(ctx: Context) {
+        cancelAnimators()
+        val c = card ?: return
+        c.removeAllViews()
+
+        // Three breathing dots (Apple Siri "thinking" pattern).
+        val dotsRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, dp(ctx, 40), 1f)
+        }
+        for (i in 0 until 3) {
+            val dot = View(ctx).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.parseColor("#7C6AE8"))
+                }
+                val s = dp(ctx, 8)
+                layoutParams = LinearLayout.LayoutParams(s, s).apply {
+                    marginStart = dp(ctx, 6)
+                    marginEnd = dp(ctx, 6)
+                }
+                alpha = 0.3f
+            }
+            dotsRow.addView(dot)
+            startBreathingAlpha(dot, 0.25f, 1f, 800, delayMs = (i * 180L))
+        }
+
+        val spinner = buildSpinnerCircle(ctx, dp(ctx, 52))
+
+        val cancel = cancelChip(ctx) { onCancelTapped(ctx) }
+
+        c.addView(dotsRow)
+        c.addView(spinner.apply {
+            (layoutParams as LinearLayout.LayoutParams).marginStart = dp(ctx, 12)
+        })
+        c.addView(cancel)
+    }
+
+    private fun renderResult(ctx: Context, text: String, label: String?) {
+        cancelAnimators()
+        val c = card ?: return
+        c.removeAllViews()
+        c.orientation = LinearLayout.VERTICAL
+        c.gravity = Gravity.START
+        c.setPadding(dp(ctx, 18), dp(ctx, 14), dp(ctx, 14), dp(ctx, 14))
+
+        // Top row: intent badge + cancel
+        val topRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val badge = TextView(ctx).apply {
+            text = (label?.uppercase() ?: "MAGIC")
+            setTextColor(Color.parseColor("#7C6AE8"))
+            textSize = 10f
+            letterSpacing = 0.18f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            layoutParams = LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            )
+        }
+        val cancelChip = cancelChip(ctx) { onCancelTapped(ctx) }
+        topRow.addView(badge)
+        topRow.addView(cancelChip)
+        c.addView(topRow)
+
+        // Body: AI-rewritten text. Word-wrap, max 5 lines, tappable
+        // (long-press to copy in NB6 polish).
+        val bodyText = text.ifBlank { "(no text)" }
+        val body = TextView(ctx).apply {
+            this.text = bodyText
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            setLineSpacing(0f, 1.35f)
+            maxLines = 5
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(ctx, 10)
+                bottomMargin = dp(ctx, 14)
+            }
+        }
+        c.addView(body)
+
+        // Action row: Retry on the left, Insert primary on the right.
+        val actions = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val retry = secondaryButton(ctx, "↻  Retry") {
+            onRetryTapped(ctx)
+        }
+        val spacer = View(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+        }
+        val insert = primaryInsertButton(ctx) {
+            onInsertTapped(ctx, bodyText)
+        }
+        actions.addView(retry)
+        actions.addView(spacer)
+        actions.addView(insert)
+        c.addView(actions)
+    }
+
+    private fun renderError(ctx: Context, message: String) {
+        cancelAnimators()
+        val c = card ?: return
+        c.removeAllViews()
+        c.orientation = LinearLayout.HORIZONTAL
+        c.gravity = Gravity.CENTER_VERTICAL
+
+        val text = TextView(ctx).apply {
+            this.text = message
+            setTextColor(Color.WHITE)
+            textSize = 13f
+            layoutParams = LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            )
+        }
+        val retry = secondaryButton(ctx, "↻  Retry") {
+            onRetryTapped(ctx)
+        }
+        val cancel = cancelChip(ctx) { onCancelTapped(ctx) }
+
+        c.addView(text)
+        c.addView(retry.apply {
+            (layoutParams as LinearLayout.LayoutParams).marginStart = dp(ctx, 8)
+        })
+        c.addView(cancel)
+    }
+
+    // ───────── Phase transitions / actions ─────────
+
+    private fun onStopTapped(ctx: Context) {
+        val path = stopRecording(ctx) ?: run {
+            renderError(ctx, "No audio captured.")
+            return
+        }
+        renderPolishing(ctx)
+        runMagicAsync(ctx, File(path))
+    }
+
+    private fun onCancelTapped(ctx: Context) {
+        stopRecording(ctx)
+        discardAudio()
+        DebugLog.log(ctx, "NativeOverlay", "Cancel tapped → close overlay")
+        hideAnimated(null)
+    }
+
+    private fun onRetryTapped(ctx: Context) {
+        discardAudio()
+        // Restore card to horizontal recording layout.
+        val c = card ?: return
+        c.orientation = LinearLayout.HORIZONTAL
+        c.gravity = Gravity.CENTER_VERTICAL
+        c.setPadding(dp(ctx, 16), dp(ctx, 14), dp(ctx, 12), dp(ctx, 14))
+        renderRecording(ctx)
+        startRecording(ctx)
+    }
+
+    private fun onInsertTapped(ctx: Context, text: String) {
+        DebugLog.log(ctx, "NativeOverlay", "Insert tapped (${text.length} chars)")
+        val a11y = VoiceBubbleA11yService.getInstance()
+        val injected = a11y?.setFocusedFieldText(text) ?: false
+        if (!injected) {
+            // Fallback: copy to clipboard so user can paste manually.
+            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            cm?.setPrimaryClip(ClipData.newPlainText("VoiceBubble", text))
+            Toast.makeText(
+                ctx,
+                "Copied — paste it where you need.",
+                Toast.LENGTH_SHORT
+            ).show()
+            DebugLog.log(ctx, "NativeOverlay", "Insert failed → clipboard fallback")
+        } else {
+            DebugLog.log(ctx, "NativeOverlay", "Insert success via A11y")
+        }
+        hideAnimated(null)
+    }
+
+    private fun runMagicAsync(ctx: Context, audio: File) {
+        val main = Handler(Looper.getMainLooper())
+        Thread {
+            try {
+                val transcript = BackendClient.transcribe(ctx, audio)
+                if (transcript.isBlank()) {
+                    main.post { renderError(ctx, "No speech detected.") }
+                    return@Thread
+                }
+                val magic = BackendClient.rewriteMagic(ctx, transcript)
+                val finalText = magic.text.ifBlank { transcript }
+                main.post { renderResult(ctx, finalText, magic.label) }
+            } catch (e: Throwable) {
+                Log.e(TAG, "Magic flow failed", e)
+                DebugLog.log(
+                    ctx,
+                    "NativeOverlay",
+                    "Magic threw: ${e.javaClass.simpleName} ${e.message}"
+                )
+                main.post {
+                    renderError(
+                        ctx,
+                        "Polish failed — check your connection."
+                    )
+                }
+            }
+        }.start()
+    }
+
+    // ───────── View building blocks ─────────
+
+    private fun buildCardShell(ctx: Context): LinearLayout {
+        return LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(
+                dp(ctx, 16), dp(ctx, 14), dp(ctx, 12), dp(ctx, 14)
+            )
+            background = GradientDrawable().apply {
+                cornerRadius = dp(ctx, 28).toFloat()
+                setColor(Color.parseColor("#E10D0D1A"))
+                setStroke(1, Color.parseColor("#14FFFFFF"))
+            }
+            elevation = dp(ctx, 18).toFloat()
+            layoutParams = FrameLayout.LayoutParams(
+                dp(ctx, 320),
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+    }
+
+    private fun cancelChip(ctx: Context, onTap: () -> Unit): TextView {
+        return TextView(ctx).apply {
             text = "✕"
             setTextColor(Color.parseColor("#CCFFFFFF"))
             textSize = 13f
@@ -365,43 +556,113 @@ object RecordingOverlay {
             }
             isClickable = true
             isFocusable = true
-            setOnClickListener { onCancel() }
+            setOnClickListener { onTap() }
         }
-
-        card.addView(recDot)
-        card.addView(wave)
-        card.addView(stop)
-        card.addView(cancel)
-        outer.addView(card)
-        return outer
     }
 
-    /** Breathing alpha pulse used by the REC dot. */
-    private fun startBreathing(
+    private fun secondaryButton(ctx: Context, label: String, onTap: () -> Unit): TextView {
+        return TextView(ctx).apply {
+            text = label
+            setTextColor(Color.parseColor("#CCFFFFFF"))
+            textSize = 13f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(dp(ctx, 12), dp(ctx, 8), dp(ctx, 12), dp(ctx, 8))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(ctx, 16).toFloat()
+                setColor(Color.parseColor("#10FFFFFF"))
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onTap() }
+        }
+    }
+
+    private fun primaryInsertButton(ctx: Context, onTap: () -> Unit): TextView {
+        return TextView(ctx).apply {
+            text = "Insert  ›"
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(dp(ctx, 18), dp(ctx, 10), dp(ctx, 18), dp(ctx, 10))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(ctx, 20).toFloat()
+                setColor(Color.parseColor("#7C6AE8"))
+            }
+            elevation = dp(ctx, 6).toFloat()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                outlineSpotShadowColor = Color.parseColor("#7C6AE8")
+                outlineAmbientShadowColor = Color.parseColor("#7C6AE8")
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                animate().scaleX(0.94f).scaleY(0.94f).setDuration(80).withEndAction {
+                    animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                    onTap()
+                }.start()
+            }
+        }
+    }
+
+    /** A 22dp purple ring spinner, centered in a `size`-dp circle slot. */
+    private fun buildSpinnerCircle(ctx: Context, slotSize: Int): View {
+        val ring = TextView(ctx).apply {
+            text = ""
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setStroke(dp(ctx, 2), Color.parseColor("#7C6AE8"))
+                setColor(Color.TRANSPARENT)
+            }
+            val s = dp(ctx, 22)
+            layoutParams = LinearLayout.LayoutParams(s, s)
+        }
+        val rotator = ValueAnimator.ofFloat(0f, 360f).apply {
+            duration = 900
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = LinearInterpolator()
+            addUpdateListener { ring.rotation = it.animatedValue as Float }
+        }
+        rotator.start()
+        animators.add(rotator)
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(slotSize, slotSize)
+        }
+        container.addView(ring)
+        return container
+    }
+
+    // ───────── Animations ─────────
+
+    private fun startBreathingAlpha(
         target: View,
-        fromAlpha: Float,
-        toAlpha: Float,
+        from: Float,
+        to: Float,
         durationMs: Long,
+        delayMs: Long = 0L,
     ) {
-        val a = ValueAnimator.ofFloat(fromAlpha, toAlpha).apply {
+        val a = ValueAnimator.ofFloat(from, to).apply {
             duration = durationMs
+            startDelay = delayMs
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
-            interpolator = PathInterpolator(0.4f, 0f, 0.6f, 1f) // soft sine-ish
+            interpolator = PathInterpolator(0.4f, 0f, 0.6f, 1f)
             addUpdateListener { target.alpha = it.animatedValue as Float }
         }
         a.start()
         animators.add(a)
     }
 
-    /** Breathing scale pulse used by the stop button. */
-    private fun startBreathing(
+    private fun startBreathingScale(
         target: View,
-        fromScale: Float,
-        toScale: Float,
+        from: Float,
+        to: Float,
         durationMs: Long,
     ) {
-        val a = ValueAnimator.ofFloat(fromScale, toScale).apply {
+        val a = ValueAnimator.ofFloat(from, to).apply {
             duration = durationMs
             repeatMode = ValueAnimator.REVERSE
             repeatCount = ValueAnimator.INFINITE
@@ -415,6 +676,8 @@ object RecordingOverlay {
         a.start()
         animators.add(a)
     }
+
+    // ───────── Helpers ─────────
 
     private fun dp(ctx: Context, value: Int): Int =
         (value * ctx.resources.displayMetrics.density).toInt()
