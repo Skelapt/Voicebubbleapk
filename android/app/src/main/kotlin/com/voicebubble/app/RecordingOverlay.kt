@@ -13,39 +13,42 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.WindowManager
 import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.io.File
 
 /**
- * Pure-native floating overlay — recording → polishing → result
- * (with Insert / Retry / Cancel) → inserting → close. Same
- * primitive as the bubble itself (`WindowManager.addView`), no
- * Flutter / isolate / plugin layer.
+ * Pure-native floating overlay built around two intentionally
+ * different shapes:
  *
- * State machine:
- *   1. RECORDING   — live waveform, breathing stop button.
- *                    Stop tap → POLISHING.
- *   2. POLISHING   — three breathing dots + spinner. HTTP calls
- *                    (transcribe + magic rewrite) run on a worker
- *                    Thread; on success → RESULT, on failure → ERROR.
- *   3. RESULT      — intent badge, AI text, [↻ Retry][Insert ›].
- *                    Insert calls VoiceBubbleA11yService to drop
- *                    the text into the focused EditText of whatever
- *                    app is in the foreground; falls back to the
- *                    clipboard when no editable focus.
- *   4. INSERTING   — green ✓ flash, brief breath, dismiss.
- *   5. ERROR       — message + [↻ Retry] + ✕.
+ *   RECORDING / POLISHING — a *small* compact pill (~200dp wide,
+ *     56dp tall). Quiet, doesn't dominate the screen. Just enough
+ *     to confirm capture is happening + give the user a stop tap
+ *     target.
  *
- * The OUTER WindowManager view stays mounted across phases; we
- * just swap the contents of the inner card so the pill morphs
- * instead of jumping.
+ *   RESULT — the *elite panel*. Wider (340dp), vertical, generous
+ *     typography, intent badge, preset re-rewrite chips
+ *     (Magic / Reply / Email / Social — tap to re-render the same
+ *     audio in a different tone without re-recording), and a
+ *     bottom action row with Retry, Copy and the primary Insert
+ *     button. This is the main event the user came for.
+ *
+ * Same underlying primitive everywhere: `WindowManager.addView` of
+ * a plain Android view. No Flutter engine, no plugin, no isolate.
+ *
+ * Insert routes through [VoiceBubbleA11yService.setFocusedFieldText]
+ * so the AI text drops directly into the focused EditText of
+ * whatever app is in the foreground; falls back to clipboard when
+ * accessibility isn't enabled / no editable focus.
  */
 object RecordingOverlay {
 
@@ -64,6 +67,11 @@ object RecordingOverlay {
     private var ampPoll: Runnable? = null
     private var waveform: WaveformView? = null
 
+    /** Last successful transcript — re-used by preset chips so they
+     *  don't have to re-transcribe the audio when re-rewriting. */
+    private var lastTranscript: String? = null
+    private var activePresetId: String = "magic"
+
     private val animators = mutableListOf<ValueAnimator>()
 
     fun isShowing(): Boolean = view != null
@@ -75,13 +83,15 @@ object RecordingOverlay {
 
         val appCtx = ctx.applicationContext
         ctxRef = appCtx
+        lastTranscript = null
+        activePresetId = "magic"
 
         val windowManager =
             appCtx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         wm = windowManager
 
         val container = FrameLayout(appCtx)
-        val cardView = buildCardShell(appCtx)
+        val cardView = buildCardShell(appCtx, widthDp = 200)
         container.addView(cardView)
         card = cardView
 
@@ -118,7 +128,6 @@ object RecordingOverlay {
             .setInterpolator(PathInterpolator(0.16f, 1f, 0.3f, 1f))
             .start()
 
-        // Land in the recording phase straight away.
         renderRecording(appCtx)
         startRecording(appCtx)
     }
@@ -165,8 +174,6 @@ object RecordingOverlay {
 
     private fun startRecording(ctx: Context) {
         try {
-            // Single-mission reward — first ever bubble record unlocks
-            // 5 free minutes. Idempotent flag.
             grantBubbleFirstUseBonusIfNew(ctx)
 
             audioFile = File(
@@ -236,9 +243,14 @@ object RecordingOverlay {
 
     // ───────── Phase rendering ─────────
 
+    /** Compact 200dp pill — small waveform + stop + cancel. */
     private fun renderRecording(ctx: Context) {
         cancelAnimators()
+        resizeCard(ctx, widthDp = 200)
         val c = card ?: return
+        c.orientation = LinearLayout.HORIZONTAL
+        c.gravity = Gravity.CENTER_VERTICAL
+        c.setPadding(dp(ctx, 14), dp(ctx, 10), dp(ctx, 10), dp(ctx, 10))
         c.removeAllViews()
 
         val recDot = View(ctx).apply {
@@ -246,9 +258,9 @@ object RecordingOverlay {
                 shape = GradientDrawable.OVAL
                 setColor(Color.parseColor("#FF3B30"))
             }
-            val s = dp(ctx, 7)
+            val s = dp(ctx, 6)
             layoutParams = LinearLayout.LayoutParams(s, s).apply {
-                marginEnd = dp(ctx, 10)
+                marginEnd = dp(ctx, 8)
             }
             alpha = 0.4f
         }
@@ -256,7 +268,7 @@ object RecordingOverlay {
 
         val wave = WaveformView(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(
-                0, dp(ctx, 40), 1f
+                0, dp(ctx, 28), 1f
             )
         }
         waveform = wave
@@ -264,33 +276,33 @@ object RecordingOverlay {
         val stop = TextView(ctx).apply {
             text = "■"
             setTextColor(Color.WHITE)
-            textSize = 16f
+            textSize = 13f
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.parseColor("#7C6AE8"))
             }
-            elevation = dp(ctx, 8).toFloat()
+            elevation = dp(ctx, 6).toFloat()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 outlineSpotShadowColor = Color.parseColor("#7C6AE8")
                 outlineAmbientShadowColor = Color.parseColor("#7C6AE8")
             }
-            val size = dp(ctx, 52)
+            val size = dp(ctx, 40)
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
-                marginStart = dp(ctx, 12)
+                marginStart = dp(ctx, 10)
             }
             isClickable = true
             isFocusable = true
             setOnClickListener {
-                animate().scaleX(0.9f).scaleY(0.9f).setDuration(80).withEndAction {
-                    animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                animate().scaleX(0.9f).scaleY(0.9f).setDuration(70).withEndAction {
+                    animate().scaleX(1f).scaleY(1f).setDuration(110).start()
                     onStopTapped(ctx)
                 }.start()
             }
         }
         startBreathingScale(stop, 0.97f, 1f, 1500)
 
-        val cancel = cancelChip(ctx) { onCancelTapped(ctx) }
+        val cancel = compactCancelChip(ctx) { onCancelTapped(ctx) }
 
         c.addView(recDot)
         c.addView(wave)
@@ -298,16 +310,20 @@ object RecordingOverlay {
         c.addView(cancel)
     }
 
+    /** Same compact 200dp pill — three breathing dots + ring spinner. */
     private fun renderPolishing(ctx: Context) {
         cancelAnimators()
+        resizeCard(ctx, widthDp = 200)
         val c = card ?: return
+        c.orientation = LinearLayout.HORIZONTAL
+        c.gravity = Gravity.CENTER_VERTICAL
+        c.setPadding(dp(ctx, 14), dp(ctx, 10), dp(ctx, 10), dp(ctx, 10))
         c.removeAllViews()
 
-        // Three breathing dots (Apple Siri "thinking" pattern).
         val dotsRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, dp(ctx, 40), 1f)
+            layoutParams = LinearLayout.LayoutParams(0, dp(ctx, 28), 1f)
         }
         for (i in 0 until 3) {
             val dot = View(ctx).apply {
@@ -315,10 +331,10 @@ object RecordingOverlay {
                     shape = GradientDrawable.OVAL
                     setColor(Color.parseColor("#7C6AE8"))
                 }
-                val s = dp(ctx, 8)
+                val s = dp(ctx, 7)
                 layoutParams = LinearLayout.LayoutParams(s, s).apply {
-                    marginStart = dp(ctx, 6)
-                    marginEnd = dp(ctx, 6)
+                    marginStart = dp(ctx, 5)
+                    marginEnd = dp(ctx, 5)
                 }
                 alpha = 0.3f
             }
@@ -326,26 +342,33 @@ object RecordingOverlay {
             startBreathingAlpha(dot, 0.25f, 1f, 800, delayMs = (i * 180L))
         }
 
-        val spinner = buildSpinnerCircle(ctx, dp(ctx, 52))
+        val spinner = buildSpinnerCircle(ctx, dp(ctx, 40))
+        (spinner.layoutParams as LinearLayout.LayoutParams).marginStart = dp(ctx, 10)
 
-        val cancel = cancelChip(ctx) { onCancelTapped(ctx) }
+        val cancel = compactCancelChip(ctx) { onCancelTapped(ctx) }
 
         c.addView(dotsRow)
-        c.addView(spinner.apply {
-            (layoutParams as LinearLayout.LayoutParams).marginStart = dp(ctx, 12)
-        })
+        c.addView(spinner)
         c.addView(cancel)
     }
 
+    /**
+     * The elite result panel. 340dp wide, vertical layout:
+     *   intent badge + ✕
+     *   AI text (scrollable if long)
+     *   preset re-rewrite chips
+     *   action row: Retry / Copy / Insert
+     */
     private fun renderResult(ctx: Context, text: String, label: String?) {
         cancelAnimators()
+        resizeCard(ctx, widthDp = 340)
         val c = card ?: return
-        c.removeAllViews()
         c.orientation = LinearLayout.VERTICAL
         c.gravity = Gravity.START
-        c.setPadding(dp(ctx, 18), dp(ctx, 14), dp(ctx, 14), dp(ctx, 14))
+        c.setPadding(dp(ctx, 18), dp(ctx, 16), dp(ctx, 18), dp(ctx, 16))
+        c.removeAllViews()
 
-        // Top row: intent badge + cancel
+        // Top: intent badge + close
         val topRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -355,7 +378,7 @@ object RecordingOverlay {
             )
         }
         val badge = TextView(ctx).apply {
-            text = (label?.uppercase() ?: "MAGIC")
+            this.text = (label?.uppercase() ?: presetLabelFor(activePresetId).uppercase())
             setTextColor(Color.parseColor("#7C6AE8"))
             textSize = 10f
             letterSpacing = 0.18f
@@ -364,32 +387,64 @@ object RecordingOverlay {
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
             )
         }
-        val cancelChip = cancelChip(ctx) { onCancelTapped(ctx) }
+        val cancelChip = compactCancelChip(ctx) { onCancelTapped(ctx) }
         topRow.addView(badge)
         topRow.addView(cancelChip)
         c.addView(topRow)
 
-        // Body: AI-rewritten text. Word-wrap, max 5 lines, tappable
-        // (long-press to copy in NB6 polish).
+        // Body — generous typography. Scrollable if long, capped to
+        // a height that keeps the panel reasonable.
         val bodyText = text.ifBlank { "(no text)" }
         val body = TextView(ctx).apply {
             this.text = bodyText
             setTextColor(Color.WHITE)
-            textSize = 15f
-            setLineSpacing(0f, 1.35f)
-            maxLines = 5
-            ellipsize = android.text.TextUtils.TruncateAt.END
+            textSize = 17f
+            setLineSpacing(0f, 1.4f)
+        }
+        val scroll = ScrollView(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                topMargin = dp(ctx, 10)
+                topMargin = dp(ctx, 12)
                 bottomMargin = dp(ctx, 14)
             }
+            isFillViewport = false
+            // Hard cap so a giant rewrite doesn't push the panel
+            // off-screen. Scroll inside instead.
+            val maxBodyDp = dp(ctx, 200)
+            layoutParams.height = LinearLayout.LayoutParams.WRAP_CONTENT
+            // Apply a maxHeight via the body itself.
+            body.maxHeight = maxBodyDp
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(body)
         }
-        c.addView(body)
+        c.addView(scroll)
 
-        // Action row: Retry on the left, Insert primary on the right.
+        // Preset re-rewrite chips — tap to re-render same recording
+        // in a different tone using the cached transcript.
+        val chipsScroll = HorizontalScrollView(ctx).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(ctx, 14) }
+        }
+        val chipsRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        for (preset in PRESETS) {
+            chipsRow.addView(presetChip(ctx, preset) {
+                onPresetTapped(ctx, it)
+            })
+        }
+        chipsScroll.addView(chipsRow)
+        c.addView(chipsScroll)
+
+        // Bottom action row: Retry · Copy · [Insert]
         val actions = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -398,16 +453,22 @@ object RecordingOverlay {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
-        val retry = secondaryButton(ctx, "↻  Retry") {
-            onRetryTapped(ctx)
+        val retry = secondaryButton(ctx, "↻  Retry") { onRetryTapped(ctx) }
+        val gap1 = View(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(ctx, 8), 1)
+        }
+        val copy = secondaryButton(ctx, "⧉  Copy") {
+            copyToClipboard(ctx, bodyText)
+            Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+            hideAnimated(null)
         }
         val spacer = View(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
         }
-        val insert = primaryInsertButton(ctx) {
-            onInsertTapped(ctx, bodyText)
-        }
+        val insert = primaryInsertButton(ctx) { onInsertTapped(ctx, bodyText) }
         actions.addView(retry)
+        actions.addView(gap1)
+        actions.addView(copy)
         actions.addView(spacer)
         actions.addView(insert)
         c.addView(actions)
@@ -415,10 +476,12 @@ object RecordingOverlay {
 
     private fun renderError(ctx: Context, message: String) {
         cancelAnimators()
+        resizeCard(ctx, widthDp = 280)
         val c = card ?: return
-        c.removeAllViews()
         c.orientation = LinearLayout.HORIZONTAL
         c.gravity = Gravity.CENTER_VERTICAL
+        c.setPadding(dp(ctx, 14), dp(ctx, 10), dp(ctx, 10), dp(ctx, 10))
+        c.removeAllViews()
 
         val text = TextView(ctx).apply {
             this.text = message
@@ -428,10 +491,8 @@ object RecordingOverlay {
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
             )
         }
-        val retry = secondaryButton(ctx, "↻  Retry") {
-            onRetryTapped(ctx)
-        }
-        val cancel = cancelChip(ctx) { onCancelTapped(ctx) }
+        val retry = secondaryButton(ctx, "↻  Retry") { onRetryTapped(ctx) }
+        val cancel = compactCancelChip(ctx) { onCancelTapped(ctx) }
 
         c.addView(text)
         c.addView(retry.apply {
@@ -460,11 +521,8 @@ object RecordingOverlay {
 
     private fun onRetryTapped(ctx: Context) {
         discardAudio()
-        // Restore card to horizontal recording layout.
-        val c = card ?: return
-        c.orientation = LinearLayout.HORIZONTAL
-        c.gravity = Gravity.CENTER_VERTICAL
-        c.setPadding(dp(ctx, 16), dp(ctx, 14), dp(ctx, 12), dp(ctx, 14))
+        lastTranscript = null
+        activePresetId = "magic"
         renderRecording(ctx)
         startRecording(ctx)
     }
@@ -474,9 +532,7 @@ object RecordingOverlay {
         val a11y = VoiceBubbleA11yService.getInstance()
         val injected = a11y?.setFocusedFieldText(text) ?: false
         if (!injected) {
-            // Fallback: copy to clipboard so user can paste manually.
-            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-            cm?.setPrimaryClip(ClipData.newPlainText("VoiceBubble", text))
+            copyToClipboard(ctx, text)
             Toast.makeText(
                 ctx,
                 "Copied — paste it where you need.",
@@ -489,6 +545,28 @@ object RecordingOverlay {
         hideAnimated(null)
     }
 
+    private fun onPresetTapped(ctx: Context, preset: PresetSpec) {
+        if (preset.id == activePresetId) return
+        val transcript = lastTranscript ?: return
+        activePresetId = preset.id
+        renderPolishing(ctx)
+        val main = Handler(Looper.getMainLooper())
+        Thread {
+            try {
+                val res = BackendClient.rewriteWithPreset(ctx, transcript, preset.id)
+                val finalText = res.text.ifBlank { transcript }
+                main.post { renderResult(ctx, finalText, res.label ?: preset.label) }
+            } catch (e: Throwable) {
+                DebugLog.log(
+                    ctx,
+                    "NativeOverlay",
+                    "Preset re-rewrite [${preset.id}] threw: ${e.message}"
+                )
+                main.post { renderError(ctx, "Could not re-style. Check connection.") }
+            }
+        }.start()
+    }
+
     private fun runMagicAsync(ctx: Context, audio: File) {
         val main = Handler(Looper.getMainLooper())
         Thread {
@@ -498,6 +576,7 @@ object RecordingOverlay {
                     main.post { renderError(ctx, "No speech detected.") }
                     return@Thread
                 }
+                lastTranscript = transcript
                 val magic = BackendClient.rewriteMagic(ctx, transcript)
                 val finalText = magic.text.ifBlank { transcript }
                 main.post { renderResult(ctx, finalText, magic.label) }
@@ -509,48 +588,66 @@ object RecordingOverlay {
                     "Magic threw: ${e.javaClass.simpleName} ${e.message}"
                 )
                 main.post {
-                    renderError(
-                        ctx,
-                        "Polish failed — check your connection."
-                    )
+                    renderError(ctx, "Polish failed — check your connection.")
                 }
             }
         }.start()
     }
 
+    private fun copyToClipboard(ctx: Context, text: String) {
+        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        cm?.setPrimaryClip(ClipData.newPlainText("VoiceBubble", text))
+    }
+
     // ───────── View building blocks ─────────
 
-    private fun buildCardShell(ctx: Context): LinearLayout {
+    private fun buildCardShell(ctx: Context, widthDp: Int): LinearLayout {
         return LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(
-                dp(ctx, 16), dp(ctx, 14), dp(ctx, 12), dp(ctx, 14)
+                dp(ctx, 14), dp(ctx, 10), dp(ctx, 10), dp(ctx, 10)
             )
             background = GradientDrawable().apply {
-                cornerRadius = dp(ctx, 28).toFloat()
+                cornerRadius = dp(ctx, 24).toFloat()
                 setColor(Color.parseColor("#E10D0D1A"))
                 setStroke(1, Color.parseColor("#14FFFFFF"))
             }
             elevation = dp(ctx, 18).toFloat()
             layoutParams = FrameLayout.LayoutParams(
-                dp(ctx, 320),
+                dp(ctx, widthDp),
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
         }
     }
 
-    private fun cancelChip(ctx: Context, onTap: () -> Unit): TextView {
+    /**
+     * Re-size the card in place (no remount) so morphing between
+     * the small recording pill and the wider result panel happens
+     * smoothly via WindowManager's natural relayout.
+     */
+    private fun resizeCard(ctx: Context, widthDp: Int) {
+        val c = card ?: return
+        val lp = c.layoutParams as FrameLayout.LayoutParams
+        lp.width = dp(ctx, widthDp)
+        c.layoutParams = lp
+        // Bigger panels deserve bigger corners.
+        (c.background as? GradientDrawable)?.cornerRadius = dp(
+            ctx, if (widthDp >= 320) 28 else 24
+        ).toFloat()
+    }
+
+    private fun compactCancelChip(ctx: Context, onTap: () -> Unit): TextView {
         return TextView(ctx).apply {
             text = "✕"
             setTextColor(Color.parseColor("#CCFFFFFF"))
-            textSize = 13f
+            textSize = 12f
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.parseColor("#10FFFFFF"))
             }
-            val size = dp(ctx, 28)
+            val size = dp(ctx, 26)
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
                 marginStart = dp(ctx, 8)
             }
@@ -564,7 +661,7 @@ object RecordingOverlay {
         return TextView(ctx).apply {
             text = label
             setTextColor(Color.parseColor("#CCFFFFFF"))
-            textSize = 13f
+            textSize = 12.5f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setPadding(dp(ctx, 12), dp(ctx, 8), dp(ctx, 12), dp(ctx, 8))
@@ -606,7 +703,43 @@ object RecordingOverlay {
         }
     }
 
-    /** A 22dp purple ring spinner, centered in a `size`-dp circle slot. */
+    private fun presetChip(
+        ctx: Context,
+        preset: PresetSpec,
+        onTap: (PresetSpec) -> Unit,
+    ): TextView {
+        val active = preset.id == activePresetId
+        return TextView(ctx).apply {
+            text = "${preset.icon}  ${preset.label}"
+            setTextColor(
+                if (active) Color.WHITE else Color.parseColor("#BFFFFFFF")
+            )
+            textSize = 12f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(dp(ctx, 12), dp(ctx, 7), dp(ctx, 12), dp(ctx, 7))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(ctx, 14).toFloat()
+                if (active) {
+                    setColor(Color.parseColor("#7C6AE8"))
+                } else {
+                    setColor(Color.parseColor("#10FFFFFF"))
+                    setStroke(1, Color.parseColor("#22FFFFFF"))
+                }
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { marginEnd = dp(ctx, 8) }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                onTap(preset)
+            }
+        }
+    }
+
     private fun buildSpinnerCircle(ctx: Context, slotSize: Int): View {
         val ring = TextView(ctx).apply {
             text = ""
@@ -615,7 +748,7 @@ object RecordingOverlay {
                 setStroke(dp(ctx, 2), Color.parseColor("#7C6AE8"))
                 setColor(Color.TRANSPARENT)
             }
-            val s = dp(ctx, 22)
+            val s = dp(ctx, 20)
             layoutParams = LinearLayout.LayoutParams(s, s)
         }
         val rotator = ValueAnimator.ofFloat(0f, 360f).apply {
@@ -682,13 +815,6 @@ object RecordingOverlay {
     private fun dp(ctx: Context, value: Int): Int =
         (value * ctx.resources.displayMetrics.density).toInt()
 
-    /**
-     * Idempotent — flips the SharedPreferences flag the first time
-     * a bubble recording starts, no-op every time after. The Dart
-     * UsageService picks this up on its next read of
-     * [hasClaimedBubbleFirstUseBonus] and adds 5 free minutes to
-     * the user's limit.
-     */
     private fun grantBubbleFirstUseBonusIfNew(ctx: Context) {
         try {
             val prefs = ctx.applicationContext
@@ -708,4 +834,22 @@ object RecordingOverlay {
             )
         }
     }
+
+    // ───────── Preset specs (server presetIds) ─────────
+
+    private data class PresetSpec(
+        val id: String,
+        val label: String,
+        val icon: String,
+    )
+
+    private val PRESETS = listOf(
+        PresetSpec("magic", "Magic", "✨"),
+        PresetSpec("quick_reply", "Reply", "💬"),
+        PresetSpec("email_professional", "Email", "✉️"),
+        PresetSpec("instagram_caption", "Social", "🔥"),
+    )
+
+    private fun presetLabelFor(id: String): String =
+        PRESETS.firstOrNull { it.id == id }?.label ?: "Magic"
 }
