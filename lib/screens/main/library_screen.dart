@@ -1637,7 +1637,7 @@ class _EmptyStateDeliciousState extends State<_EmptyStateDelicious>
             ),
           ),
           child: const Text(
-            '🎁  10 free minutes of Pro — already yours',
+            '🎁  5 free minutes — unlock by tapping the bubble',
             style: TextStyle(
               color: Colors.white,
               fontSize: 12,

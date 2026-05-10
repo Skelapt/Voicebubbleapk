@@ -1,15 +1,52 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Tracks STT and AI usage for free/pro limits
-/// FREE: 10 min standard every month (no button required).
-/// Bonuses: 1 min review bonus.
-/// PRO: Unlimited
+/// Tracks STT and AI usage for free/pro limits.
+///
+/// Free model (NB-era):
+///   • Zero standard free time. Nothing is given just for installing.
+///   • The user UNLOCKS 5 minutes the FIRST time they record via the
+///     floating bubble. The single-mission goal of the app is to get
+///     them to activate the bubble and use it once — the reward
+///     arrives at exactly that moment so the gift can't be cashed
+///     without the activation.
+///   • Reviewing the app on Play unlocks +1 min on top.
+///   • Pro = unlimited.
+///
+/// Why the bubble-only reward:
+///   The previous "free 10 min just for opening the app" tier wasn't
+///   converting because heavy users could exhaust their need inside
+///   the free tier without ever feeling the value of the bubble. Now
+///   minutes only exist if you've felt the bubble's "speak in any
+///   app" magic — every minute of free usage is also a minute of
+///   reinforcement on the upgrade path.
 class UsageService {
   static const String _boxName = 'usage_data';
-  static const int freeSecondsLimit = 600;      // 10 minutes standard for every free user
-  static const int proSecondsLimit = 999999;    // Unlimited for pro
-  static const int reviewBonusSeconds = 60;     // 1 minute bonus for review
-  static const int onboardingBonusSeconds = 0;  // Deprecated: 10 min is now standard (see freeSecondsLimit)
+
+  /// Standard free seconds with no action — zero. The user must
+  /// activate AND use the bubble to unlock anything.
+  static const int freeSecondsLimit = 0;
+
+  /// Unlimited for Pro.
+  static const int proSecondsLimit = 999999;
+
+  /// Bonus added when the user leaves a review — one minute on top.
+  static const int reviewBonusSeconds = 60;
+
+  /// Bonus unlocked the first time the user records VIA the floating
+  /// bubble (not from inside the main app). 5 minutes — enough to
+  /// taste the value, not so much that the wall feels arbitrary.
+  static const int bubbleFirstUseBonusSeconds = 300;
+
+  /// Deprecated: kept at zero for backward compat with any code that
+  /// still references the old "onboarding bonus" name.
+  static const int onboardingBonusSeconds = 0;
+
+  // SharedPreferences key written by either the Dart side or by
+  // native code (OverlayService.kt) the moment the user first taps
+  // record via the bubble. Picked up here on the next read of
+  // [hasClaimedBubbleFirstUseBonus].
+  static const String _bubbleBonusPrefsKey = 'flutter.bubble_first_use_bonus_claimed';
 
   // Singleton
   static final UsageService _instance = UsageService._internal();
@@ -50,10 +87,10 @@ class UsageService {
     if (isPro) return proSecondsLimit;
 
     final hasReviewBonus = await hasClaimedReviewBonus();
-    final hasOnboardingBonus = await hasClaimedOnboardingBonus();
+    final hasBubbleBonus = await hasClaimedBubbleFirstUseBonus();
     return freeSecondsLimit
         + (hasReviewBonus ? reviewBonusSeconds : 0)
-        + (hasOnboardingBonus ? onboardingBonusSeconds : 0);
+        + (hasBubbleBonus ? bubbleFirstUseBonusSeconds : 0);
   }
 
   /// Check if review bonus has been claimed
@@ -71,20 +108,40 @@ class UsageService {
     return true;
   }
 
-  /// Check if onboarding bonus has been claimed
-  Future<bool> hasClaimedOnboardingBonus() async {
-    final box = await Hive.openBox(_boxName);
-    return box.get('onboarding_bonus_claimed', defaultValue: false);
+  /// Has the user already unlocked the 5-minute first-bubble-use bonus?
+  /// Native (OverlayService.kt) writes this flag the moment the user
+  /// taps record via the bubble for the first time, so the limit
+  /// updates immediately.
+  Future<bool> hasClaimedBubbleFirstUseBonus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Stored under the FlutterSharedPreferences-style key name (the
+      // Dart plugin strips the "flutter." prefix on read so we use the
+      // plain key here).
+      return prefs.getBool('bubble_first_use_bonus_claimed') ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
-  /// Claim the onboarding bonus (adds 10 minutes). Returns true if successfully claimed.
-  Future<bool> claimOnboardingBonus() async {
-    final box = await Hive.openBox(_boxName);
-    final alreadyClaimed = box.get('onboarding_bonus_claimed', defaultValue: false);
-    if (alreadyClaimed) return false;
-    await box.put('onboarding_bonus_claimed', true);
+  /// Claim the bubble-first-use bonus (5 minutes). Returns true the
+  /// first time, false on subsequent calls. Either Dart or native
+  /// can call this — both end up flipping the same flag.
+  Future<bool> claimBubbleFirstUseBonus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final already = prefs.getBool('bubble_first_use_bonus_claimed') ?? false;
+    if (already) return false;
+    await prefs.setBool('bubble_first_use_bonus_claimed', true);
     return true;
   }
+
+  /// Backwards-compat shim — older code paths still call this.
+  /// Kept as a no-op (returns false) since the onboarding bonus has
+  /// been removed; the native bubble flow now provides the gift.
+  Future<bool> hasClaimedOnboardingBonus() async => false;
+
+  /// Backwards-compat shim — calling this no longer grants minutes.
+  Future<bool> claimOnboardingBonus() async => false;
 
   /// Should we prompt for review? (after using 3+ minutes, and not yet claimed)
   Future<bool> shouldShowReviewPrompt({required bool isPro}) async {

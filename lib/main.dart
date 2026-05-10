@@ -14,6 +14,7 @@ import 'services/reminder_manager.dart';
 import 'services/analytics_service.dart';
 import 'services/share_handler_service.dart';
 import 'screens/main/main_navigation.dart';
+import 'screens/onboarding/activate_bubble_screen.dart';
 import 'screens/onboarding/permissions_screen.dart';
 import 'screens/onboarding/feature_showcase_screen.dart';
 import 'screens/onboarding/first_recording_screen.dart';
@@ -344,9 +345,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case 0:
         return FeatureShowcaseScreen(onComplete: _nextStep);
       case 1:
-        return PermissionsScreen(onComplete: _nextStep);
+        // The mission of the entire onboarding: activate the bubble
+        // and use it once. Voice-only is available as a secondary
+        // link inside this screen but the primary CTA is bubble.
+        return ActivateBubbleScreen(onComplete: _nextStep);
       case 2:
-        // Skip first recording screen — go straight to main app
         return const MainNavigation();
       default:
         return const MainNavigation();

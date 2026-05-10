@@ -32,7 +32,9 @@ class FeatureGate {
         final totalMinutes = totalLimit ~/ 60;
         final reason = isPro
             ? 'You\'ve used all 90 minutes this month.'
-            : 'You\'ve used all $totalMinutes minutes of free STT & AI.';
+            : (totalLimit == 0
+                ? 'Tap the floating bubble once to unlock 5 free minutes — or upgrade for unlimited.'
+                : 'You\'ve used all $totalMinutes free minutes. Upgrade for unlimited.');
         final shouldUpgrade = await UpgradeDialog.show(
           context,
           reason: reason,
