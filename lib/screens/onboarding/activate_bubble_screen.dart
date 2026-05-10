@@ -373,7 +373,7 @@ class _ActivateBubbleScreenState extends State<ActivateBubbleScreen>
                 ? null
                 : const [
                     BoxShadow(
-                      color: Color(0x66_7C6AE8),
+                      color: Color(0x667C6AE8),
                       blurRadius: 20,
                       offset: Offset(0, 10),
                     ),
