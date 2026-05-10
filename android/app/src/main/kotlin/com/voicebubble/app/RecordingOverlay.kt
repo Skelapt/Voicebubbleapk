@@ -169,6 +169,15 @@ object RecordingOverlay {
 
     private fun startRecording(ctx: Context) {
         try {
+            // The single-mission goal of the app: activate AND use
+            // the bubble. The 5-minute free reward is tied to
+            // exactly this moment — first time the user actually
+            // taps record via the bubble. Written into the same
+            // SharedPreferences file the Dart UsageService reads
+            // from on the next limit check, so the gift lands on
+            // the very first attempt.
+            grantBubbleFirstUseBonusIfNew(ctx)
+
             val cacheDir = ctx.cacheDir
             audioFile = File(cacheDir, "vb_native_${System.currentTimeMillis()}.m4a")
 
@@ -409,4 +418,31 @@ object RecordingOverlay {
 
     private fun dp(ctx: Context, value: Int): Int =
         (value * ctx.resources.displayMetrics.density).toInt()
+
+    /**
+     * Idempotent — flips the SharedPreferences flag the first time
+     * a bubble recording starts, no-op every time after. The Dart
+     * UsageService picks this up on its next read of
+     * [hasClaimedBubbleFirstUseBonus] and adds 5 free minutes to
+     * the user's limit.
+     */
+    private fun grantBubbleFirstUseBonusIfNew(ctx: Context) {
+        try {
+            val prefs = ctx.applicationContext
+                .getSharedPreferences(
+                    "FlutterSharedPreferences",
+                    Context.MODE_PRIVATE
+                )
+            val key = "flutter.bubble_first_use_bonus_claimed"
+            if (prefs.getBoolean(key, false)) return
+            prefs.edit().putBoolean(key, true).apply()
+            DebugLog.log(ctx, "Reward", "Bubble-first-use bonus granted (5 min)")
+        } catch (e: Throwable) {
+            DebugLog.log(
+                ctx,
+                "Reward",
+                "Failed to grant bubble bonus: ${e.javaClass.simpleName} ${e.message}"
+            )
+        }
+    }
 }

@@ -4,7 +4,8 @@ import '../services/usage_service.dart';
 import '../services/subscription_service.dart';
 
 /// Dialog to ask for app review using native OS review dialog
-/// - Free users: Shown when free time exhausted, offers 1 min bonus
+/// - Free users: Shown when their bubble-unlocked free time runs out;
+///   leaving a review unlocks +1 min on top
 /// - Pro users: Shown after upgrade to say thanks
 class ReviewDialog extends StatelessWidget {
   final bool isFreeUser;
@@ -87,7 +88,7 @@ class ReviewDialog extends StatelessWidget {
         children: [
           if (isFreeUser) ...[
             const Text(
-              'You\'ve used your 10 minutes of free STT & AI.',
+              'You\'ve used the free time you unlocked. Leave a review and grab one more minute.',
               style: TextStyle(color: secondaryTextColor, fontSize: 14),
               textAlign: TextAlign.center,
             ),

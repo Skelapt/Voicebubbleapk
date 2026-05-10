@@ -266,7 +266,9 @@ class _UsageDisplayWidgetState extends State<UsageDisplayWidget> {
                   child: Text(
                     _isPro
                         ? 'Pro: Unlimited recordings & AI'
-                        : '${(_totalLimit / 60).floor()} minutes free this month',
+                        : (_totalLimit > 0
+                            ? '${(_totalLimit / 60).floor()} free minutes — unlocked from the bubble'
+                            : 'Tap the floating bubble to unlock 5 free minutes'),
                     style: TextStyle(
                       color: secondaryTextColor,
                       fontSize: 12,
