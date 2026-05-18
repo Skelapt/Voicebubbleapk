@@ -30,8 +30,8 @@ android {
         applicationId = "com.voicebubble.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 90
-        versionName = "4.4.0-nb-16kb"
+        versionCode = 91
+        versionName = "4.5.0-nb-16kb"
 
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
