@@ -32,7 +32,6 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
-import io.flutter.embedding.engine.FlutterEngineCache
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -251,20 +250,9 @@ class OverlayService : Service() {
     }
 
     /**
-     * Pop the Flutter recording overlay over whatever app the user is
-     * currently in.
-     *
-     * No MainActivity bounce, no visible flash. We invoke `showOverlay`
-     * directly on the cached background Flutter engine's method channel
-     * (the one [MyApplication] keeps warm at process start). The
-     * `flutter_overlay_window` plugin's MethodCallHandler receives the
-     * call, sets up its own OverlayService, and adds a FlutterView to
-     * WindowManager — all without ever bringing an Activity to front.
-     *
-     * If the cached engine isn't available for any reason (process
-     * cold-started without [MyApplication] running, OEM weirdness),
-     * we fall back to the activity-bridge path so the bubble still
-     * works — just with the old flash.
+     * Pop the native recording overlay over whatever app the user is
+     * currently in. Pure WindowManager.addView of a Kotlin View —
+     * no Flutter engine, no plugin, no isolate, no activity bounce.
      */
     private fun showRecordingOverlay(showPresets: Boolean) {
         DebugLog.log(this, "Bubble", "showRecordingOverlay(showPresets=$showPresets)")
