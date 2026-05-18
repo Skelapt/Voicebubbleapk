@@ -60,6 +60,7 @@ object RecordingOverlay {
     private var card: LinearLayout? = null
     private var ctxRef: Context? = null
     private var wm: WindowManager? = null
+    private var windowParams: WindowManager.LayoutParams? = null
 
     private var recorder: MediaRecorder? = null
     private var audioFile: File? = null
@@ -111,11 +112,11 @@ object RecordingOverlay {
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.CENTER }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            params.flags = params.flags or
-                WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-            params.blurBehindRadius = 28
-        }
+        // Blur is OFF during recording so the user can read the
+        // message they're replying to. We only turn it on when we
+        // morph into the result panel (the "main event") — kept in
+        // sync via [setBlurEnabled].
+        windowParams = params
 
         container.alpha = 0f
         container.scaleX = 0.94f
@@ -163,6 +164,29 @@ object RecordingOverlay {
         ampPoll?.let { ampHandler?.removeCallbacks(it) }
         ampHandler = null
         ampPoll = null
+    }
+
+    /**
+     * Toggle FLAG_BLUR_BEHIND on the live overlay window. Blur is
+     * ON for the result panel (premium focus on the AI text), OFF
+     * for the recording / polishing pill (so the user can read the
+     * message they're responding to while speaking).
+     */
+    private fun setBlurEnabled(enabled: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val v = view ?: return
+        val windowManager = wm ?: return
+        val params = windowParams ?: return
+        val currentlyOn = (params.flags and
+            WindowManager.LayoutParams.FLAG_BLUR_BEHIND) != 0
+        if (enabled == currentlyOn) return
+        params.flags = if (enabled) {
+            params.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+        } else {
+            params.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
+        }
+        params.blurBehindRadius = if (enabled) 28 else 0
+        try { windowManager.updateViewLayout(v, params) } catch (_: Throwable) {}
     }
 
     private fun cancelAnimators() {
@@ -246,6 +270,9 @@ object RecordingOverlay {
     /** Compact 200dp pill — small waveform + stop + cancel. */
     private fun renderRecording(ctx: Context) {
         cancelAnimators()
+        // Recording: no blur — user is reading the message they're
+        // replying to while speaking.
+        setBlurEnabled(false)
         resizeCard(ctx, widthDp = 200)
         val c = card ?: return
         c.orientation = LinearLayout.HORIZONTAL
@@ -361,6 +388,10 @@ object RecordingOverlay {
      */
     private fun renderResult(ctx: Context, text: String, label: String?) {
         cancelAnimators()
+        // Result panel: blur ON — focus the user's eyes on the AI
+        // text. The underlying app stays legible behind the blur
+        // but recedes.
+        setBlurEnabled(true)
         resizeCard(ctx, widthDp = 340)
         val c = card ?: return
         c.orientation = LinearLayout.VERTICAL
@@ -398,8 +429,10 @@ object RecordingOverlay {
         val body = TextView(ctx).apply {
             this.text = bodyText
             setTextColor(Color.WHITE)
-            textSize = 17f
-            setLineSpacing(0f, 1.4f)
+            // 15sp at 1.45 line height — comfortably readable, fits
+            // ~10 lines into the panel before scroll engages.
+            textSize = 15f
+            setLineSpacing(0f, 1.45f)
         }
         val scroll = ScrollView(ctx).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -411,10 +444,10 @@ object RecordingOverlay {
             }
             isFillViewport = false
             // Hard cap so a giant rewrite doesn't push the panel
-            // off-screen. Scroll inside instead.
-            val maxBodyDp = dp(ctx, 200)
+            // off-screen — but big enough that a typical email
+            // / reply fits without ever needing to scroll.
+            val maxBodyDp = dp(ctx, 320)
             layoutParams.height = LinearLayout.LayoutParams.WRAP_CONTENT
-            // Apply a maxHeight via the body itself.
             body.maxHeight = maxBodyDp
             isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER

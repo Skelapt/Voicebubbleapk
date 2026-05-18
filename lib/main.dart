@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'providers/app_state_provider.dart';
@@ -53,24 +51,10 @@ void main() async {
   runApp(const MyApp());
 }
 
-/// Lightweight no-op entry point used by `MyApplication.kt` to keep
-/// a long-lived Flutter engine alive in the background. We don't run
-/// the full main app inside this engine — we just need an isolate
-/// that has all pubspec plugins (especially flutter_overlay_window)
-/// auto-registered, so the bubble's native service can invoke
-/// `showOverlay` on the plugin's method channel without bringing
-/// MainActivity to the foreground (avoids the visible flash).
-@pragma('vm:entry-point')
-void bgEngineMain() {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Keep the isolate alive forever — plugins are now reachable from
-  // any Service in the same process via FlutterEngineCache.
-  // No UI, no Firebase init, no app state. Pure plumbing.
-  DebugLogService().log(
-    'BgEngine',
-    'bgEngineMain entry-point reached — plugins ready on cached engine',
-  );
-}
+// Note: the legacy `bgEngineMain` entry-point + cached background
+// Flutter engine was deleted alongside flutter_overlay_window. The
+// bubble's recording pill + result panel are now pure native
+// (RecordingOverlay.kt). No second Flutter engine is needed.
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -80,8 +64,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  static const _overlayChannel = MethodChannel('voicebubble/overlay');
-
   final _navigatorKey = GlobalKey<NavigatorState>();
   SharedContent? _pendingShareContent;
 
@@ -89,42 +71,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _setupShareListener();
-    _setupOverlayFallbackListener();
-  }
-
-  /// Fallback path for the bubble. Primary path is direct invocation
-  /// on the cached bg Flutter engine from native (zero flash). If that
-  /// fails (cold start without MyApplication, etc.), OverlayService
-  /// re-routes through MainActivity which hits this listener.
-  void _setupOverlayFallbackListener() {
-    _overlayChannel.setMethodCallHandler((call) async {
-      if (call.method == 'showOverlayWindow') {
-        await DebugLogService()
-            .log('Bridge', 'Dart received showOverlayWindow (fallback path)');
-        try {
-          final isShowing = await FlutterOverlayWindow.isActive();
-          await DebugLogService()
-              .log('Bridge', 'FlutterOverlayWindow.isActive=$isShowing');
-          if (isShowing == true) return null;
-          await FlutterOverlayWindow.showOverlay(
-            height: 220,
-            width: WindowSize.matchParent,
-            alignment: OverlayAlignment.center,
-            flag: OverlayFlag.defaultFlag,
-            overlayTitle: 'VoiceBubble',
-            overlayContent: 'Recording',
-            enableDrag: false,
-          );
-          await DebugLogService()
-              .log('Bridge', 'FlutterOverlayWindow.showOverlay returned');
-        } catch (e) {
-          debugPrint('❌ Overlay fallback path failed: $e');
-          await DebugLogService()
-              .log('Bridge', 'Fallback showOverlay threw: $e');
-        }
-      }
-      return null;
-    });
   }
 
   void _setupShareListener() {

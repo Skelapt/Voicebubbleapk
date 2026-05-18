@@ -288,11 +288,32 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 onTap: _isLoading || _isPurchasing ? null : _handleRestore,
                 child: Text('Restore Purchase', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.35))),
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Subscription auto-renews. Cancel anytime in settings.',
-                style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.2)),
-                textAlign: TextAlign.center,
+              const SizedBox(height: 10),
+              // Explicit subscription terms \u2014 Google Play requires every
+              // paid offer to state cost, frequency, auto-renewal and how
+              // to cancel, in a clearly visible block. Conditional on
+              // the user's currently selected plan.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  _isYearlySelected
+                      ? '$yearlyPrice billed once per year after a 7-day free trial. '
+                          'Subscription automatically renews every year for $yearlyPrice unless '
+                          'cancelled at least 24 hours before the current period ends. '
+                          'Manage or cancel in Google Play \u2192 Subscriptions. '
+                          'Pro features are optional \u2014 the app works without a subscription.'
+                      : '$monthlyPrice billed every month. Subscription automatically renews '
+                          'each month for $monthlyPrice unless cancelled at least 24 hours '
+                          'before the current period ends. Manage or cancel in Google Play '
+                          '\u2192 Subscriptions. Pro features are optional \u2014 the app '
+                          'works without a subscription.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 1.45,
+                    color: Colors.white.withOpacity(0.55),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
               const Spacer(flex: 1),
             ],

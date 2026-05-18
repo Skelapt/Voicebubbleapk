@@ -28,16 +28,18 @@ dependencies:
   path_provider: ^2.1.2
   
   # Speech & Permissions
-  speech_to_text: ^7.0.0
+  # speech_to_text removed — not imported anywhere; we use the native
+  # MediaRecorder + our backend's Whisper transcription instead.
   permission_handler: ^11.1.0
   record: ^6.2.0
-  
+
   # Authentication
+  # sign_in_with_apple removed — not imported anywhere (iOS-only auth
+  # path that was never wired). Drops its native .so files.
   firebase_core: ^4.4.0
   firebase_auth: ^6.1.4
   firebase_analytics: ^12.1.2
   google_sign_in: ^6.2.1
-  sign_in_with_apple: ^6.1.2
   cloud_firestore: ^6.1.2
   
   # In-App Purchases
@@ -50,8 +52,10 @@ dependencies:
   http: ^1.2.0
   dio: ^5.4.0
   
-  # Android Overlay
-  flutter_overlay_window: ^0.5.0
+  # Android Overlay — removed. The bubble + recording panel are now
+  # pure native (Kotlin WindowManager.addView). Removing this plugin
+  # drops its .so files from the APK, helping 16 KB compliance and
+  # shrinking download size.
   
   # File Sharing/Import
   receive_sharing_intent: ^1.8.0
@@ -73,7 +77,9 @@ dependencies:
   
   # Rich Text Editor
   flutter_quill: ^9.0.0
-  flutter_quill_extensions: ^9.0.0
+  # flutter_quill_extensions removed — not imported anywhere; was
+  # pulling in super_native_extensions + irondash_engine_context
+  # whose old .so files were the most likely 16 KB offenders.
   gal: 2.2.0  # Exact version to avoid compatibility issues
   
   # PDF Export
@@ -85,11 +91,10 @@ dependencies:
 
   # OCR - Image text extraction
   google_mlkit_text_recognition: ^0.15.1
-dependency_overrides:
-  # Fix flutter_inappwebview namespace issue
-  flutter_inappwebview: ^6.1.5
-  # Fix gal_linux compatibility issue
-  
+
+  # flutter_inappwebview removed — was previously force-overridden
+  # via dependency_overrides but never imported anywhere. Drops
+  # a large native WebView dependency.
 
 dev_dependencies:
   flutter_test:
