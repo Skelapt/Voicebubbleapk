@@ -151,7 +151,7 @@ class _AccessibilityPermissionScreenState
                   Text(
                     _granted
                         ? 'The bubble can now drop AI replies straight into any app you\'re typing in.'
-                        : 'Let the bubble paste your AI-rewritten text directly into WhatsApp, Gmail, anywhere you type — without leaving the app.',
+                        : 'Enable the Accessibility Service so the bubble can paste your AI-rewritten text into the app you\'re typing in.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: textSecondary,
@@ -159,11 +159,17 @@ class _AccessibilityPermissionScreenState
                       height: 1.5,
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
-                  // Privacy reassurance card — biggest concern users have
-                  // when they see Android's "this can read your screen"
-                  // warning. Address it head-on.
+                  // PROMINENT DISCLOSURE — required by Google Play's
+                  // Accessibility API + User Data policies. Uses Google's
+                  // recommended format verbatim:
+                  //   "[App] accesses [data] to enable [feature], [when]."
+                  // Names the Accessibility Service explicitly, states
+                  // exactly what is accessed, how it's used, and that
+                  // nothing else is collected/stored/shared. Shown in the
+                  // normal onboarding flow, immediately before the consent
+                  // action — not buried in a menu or the privacy policy.
                   if (!_granted)
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -171,7 +177,7 @@ class _AccessibilityPermissionScreenState
                         color: Colors.white.withOpacity(0.04),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.06),
+                          color: Colors.white.withOpacity(0.08),
                         ),
                       ),
                       child: Row(
@@ -193,20 +199,25 @@ class _AccessibilityPermissionScreenState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: const [
                                 Text(
-                                  'Private by default',
+                                  'How VoiceBubble uses the Accessibility Service',
                                   style: TextStyle(
                                     color: textPrimary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                SizedBox(height: 4),
+                                SizedBox(height: 6),
                                 Text(
-                                  'Used only to paste your AI text into the field you\'re typing in. Nothing else from other apps is read, stored, or sent.',
+                                  'VoiceBubble uses the Accessibility Service to detect the '
+                                  'text field you have selected and to insert your '
+                                  'AI-rewritten text into it — only at the moment you tap '
+                                  '“Insert”. VoiceBubble does not read, collect, store, or '
+                                  'share any other content from the apps you use. The '
+                                  'service is never used in the background.',
                                   style: TextStyle(
                                     color: textSecondary,
                                     fontSize: 13,
-                                    height: 1.45,
+                                    height: 1.5,
                                   ),
                                 ),
                               ],
@@ -227,7 +238,7 @@ class _AccessibilityPermissionScreenState
                       children: const [
                         _StepRow(
                             num: '1',
-                            text: 'Tap "Enable Magic" — opens system settings'),
+                            text: 'Tap "Agree & enable" — opens system settings'),
                         SizedBox(height: 10),
                         _StepRow(
                             num: '2',
@@ -286,9 +297,11 @@ class _AccessibilityPermissionScreenState
                           elevation: 0,
                         ),
                         child: Text(
-                          _waitingForGrant ? 'Open settings again' : 'Enable Magic',
+                          _waitingForGrant
+                              ? 'Open settings again'
+                              : 'Agree & enable Accessibility',
                           style: const TextStyle(
-                            fontSize: 17,
+                            fontSize: 16,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.2,
                           ),

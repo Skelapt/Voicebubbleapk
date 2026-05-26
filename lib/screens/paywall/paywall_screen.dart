@@ -275,45 +275,41 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                _isYearlySelected ? 'Cancel anytime \u2022 You won\'t be charged today' : 'Cancel anytime \u2022 No commitment',
-                style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.3)),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Restore + legal
-              GestureDetector(
-                onTap: _isLoading || _isPurchasing ? null : _handleRestore,
-                child: Text('Restore Purchase', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.35))),
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               // Explicit subscription terms \u2014 Google Play requires every
-              // paid offer to state cost, frequency, auto-renewal and how
-              // to cancel, in a clearly visible block. Conditional on
-              // the user's currently selected plan.
+              // paid offer to clearly state cost, billing frequency,
+              // auto-renewal, and that a subscription is optional. Placed
+              // directly under the CTA, at high contrast, so it's an
+              // unmissable part of the offer (not buried fine print).
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   _isYearlySelected
-                      ? '$yearlyPrice billed once per year after a 7-day free trial. '
-                          'Subscription automatically renews every year for $yearlyPrice unless '
-                          'cancelled at least 24 hours before the current period ends. '
-                          'Manage or cancel in Google Play \u2192 Subscriptions. '
-                          'Pro features are optional \u2014 the app works without a subscription.'
-                      : '$monthlyPrice billed every month. Subscription automatically renews '
-                          'each month for $monthlyPrice unless cancelled at least 24 hours '
-                          'before the current period ends. Manage or cancel in Google Play '
-                          '\u2192 Subscriptions. Pro features are optional \u2014 the app '
-                          'works without a subscription.',
+                      ? 'Yearly plan: 7-day free trial, then $yearlyPrice per year. '
+                          'Automatically renews at $yearlyPrice every year unless you '
+                          'cancel at least 24 hours before the period ends. '
+                          'A subscription is not required to use the app \u2014 Pro features '
+                          'are optional. Manage or cancel anytime in Google Play \u2192 Subscriptions.'
+                      : 'Monthly plan: $monthlyPrice per month. Automatically renews at '
+                          '$monthlyPrice every month unless you cancel at least 24 hours '
+                          'before the period ends. A subscription is not required to use '
+                          'the app \u2014 Pro features are optional. Manage or cancel anytime '
+                          'in Google Play \u2192 Subscriptions.',
                   style: TextStyle(
-                    fontSize: 11,
-                    height: 1.45,
-                    color: Colors.white.withOpacity(0.55),
+                    fontSize: 11.5,
+                    height: 1.5,
+                    color: Colors.white.withOpacity(0.72),
                   ),
                   textAlign: TextAlign.center,
                 ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // Restore
+              GestureDetector(
+                onTap: _isLoading || _isPurchasing ? null : _handleRestore,
+                child: Text('Restore Purchase', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.4))),
               ),
               const Spacer(flex: 1),
             ],
