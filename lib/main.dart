@@ -13,6 +13,7 @@ import 'services/analytics_service.dart';
 import 'services/share_handler_service.dart';
 import 'screens/main/main_navigation.dart';
 import 'screens/onboarding/activate_bubble_screen.dart';
+import 'screens/onboarding/accessibility_permission_screen.dart';
 import 'screens/onboarding/permissions_screen.dart';
 import 'screens/onboarding/feature_showcase_screen.dart';
 import 'screens/onboarding/first_recording_screen.dart';
@@ -274,13 +275,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   int _currentStep = 0;
 
   void _nextStep() {
-    if (_currentStep < 2) {
+    if (_currentStep < 3) {
       setState(() {
         _currentStep++;
       });
     }
-    // After permissions (step 1 → 2), finish onboarding immediately
-    if (_currentStep >= 2) {
+    if (_currentStep >= 3) {
       widget.onComplete(context);
     }
   }
@@ -291,11 +291,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case 0:
         return FeatureShowcaseScreen(onComplete: _nextStep);
       case 1:
-        // The mission of the entire onboarding: activate the bubble
-        // and use it once. Voice-only is available as a secondary
-        // link inside this screen but the primary CTA is bubble.
-        return ActivateBubbleScreen(onComplete: _nextStep);
+        // GUARANTEED prominent-disclosure step — every user sees this
+        // in the normal onboarding flow, before any sensitive
+        // permission is requested. Covers overlay, microphone,
+        // accessibility text insertion, and AI processing. Required
+        // by Google Play's Accessibility API + User Data policies
+        // (the disclosure must be reachable in normal usage, not
+        // gated behind a feature).
+        return AccessibilityPermissionScreen(onComplete: _nextStep);
       case 2:
+        // Activate the bubble (overlay + mic). The mission: get the
+        // user to turn it on and use it once.
+        return ActivateBubbleScreen(onComplete: _nextStep);
+      case 3:
         return const MainNavigation();
       default:
         return const MainNavigation();

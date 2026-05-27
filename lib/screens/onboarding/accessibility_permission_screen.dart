@@ -104,155 +104,114 @@ class _AccessibilityPermissionScreenState
                 .animate(CurvedAnimation(
                     parent: _enterCtrl, curve: Curves.easeOutCubic)),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
               child: Column(
                 children: [
-                  // Top bar: back / dismiss
-                  Row(
-                    children: [
-                      const Spacer(),
-                      TextButton(
-                        onPressed: widget.onComplete,
-                        style: TextButton.styleFrom(
-                          foregroundColor: textSecondary,
-                        ),
-                        child: const Text(
-                          'Not now',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-
-                  // Hero icon
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
-                    transitionBuilder: (child, animation) =>
-                        ScaleTransition(scale: animation, child: child),
-                    child: _granted
-                        ? _GrantedHero()
-                        : _IdleHero(purple: purple),
-                  ),
-                  const SizedBox(height: 36),
-
-                  // Headline
-                  Text(
-                    _granted ? 'You\'re ready' : 'One last switch',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: textPrimary,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _granted
-                        ? 'The bubble can now drop AI replies straight into any app you\'re typing in.'
-                        : 'Enable the Accessibility Service so the bubble can paste your AI-rewritten text into the app you\'re typing in.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: textSecondary,
-                      fontSize: 15,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // PROMINENT DISCLOSURE — required by Google Play's
-                  // Accessibility API + User Data policies. Uses Google's
-                  // recommended format verbatim:
-                  //   "[App] accesses [data] to enable [feature], [when]."
-                  // Names the Accessibility Service explicitly, states
-                  // exactly what is accessed, how it's used, and that
-                  // nothing else is collected/stored/shared. Shown in the
-                  // normal onboarding flow, immediately before the consent
-                  // action — not buried in a menu or the privacy policy.
-                  if (!_granted)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.04),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.08),
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  // Scrollable disclosure body so the full breakdown
+                  // always fits, on any screen size, without overflow.
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: purple.withOpacity(0.15),
-                              shape: BoxShape.circle,
+                          const SizedBox(height: 12),
+                          Center(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 280),
+                              transitionBuilder: (child, animation) =>
+                                  ScaleTransition(
+                                      scale: animation, child: child),
+                              child: _granted
+                                  ? _GrantedHero()
+                                  : _IdleHero(purple: purple),
                             ),
-                            child: const Icon(Icons.lock_outline,
-                                color: purple, size: 20),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  'How VoiceBubble uses the Accessibility Service',
-                                  style: TextStyle(
-                                    color: textPrimary,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                SizedBox(height: 6),
-                                Text(
+                          const SizedBox(height: 28),
+                          Text(
+                            _granted
+                                ? 'You\'re ready'
+                                : 'How VoiceBubble works',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: textPrimary,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.6,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            _granted
+                                ? 'The bubble can now drop AI replies straight into any app you\'re typing in.'
+                                : 'Before you start, here is exactly what VoiceBubble accesses and why. Nothing runs in the background.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: textSecondary,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // ── PROMINENT DISCLOSURE ──
+                          // Required by Google Play's Accessibility API +
+                          // User Data policies. Covers every sensitive
+                          // capability the app uses, names each one,
+                          // states the data accessed, the use, the
+                          // scenario, and that nothing else is
+                          // collected / stored / shared. Shown to EVERY
+                          // user in the normal onboarding flow before any
+                          // permission is requested — not gated behind a
+                          // feature, not buried in a menu or the policy.
+                          if (!_granted) ...[
+                            _DisclosureItem(
+                              icon: Icons.bubble_chart_rounded,
+                              title: 'Floating bubble (display over apps)',
+                              body:
+                                  'VoiceBubble shows a floating button on top of your other '
+                                  'apps so you can start a voice rewrite anywhere. It only '
+                                  'draws the bubble — it cannot see the content of other apps.',
+                            ),
+                            const SizedBox(height: 12),
+                            _DisclosureItem(
+                              icon: Icons.mic_rounded,
+                              title: 'Microphone',
+                              body:
+                                  'VoiceBubble records your voice only while you are actively '
+                                  'recording (after you tap the bubble and start). It is never '
+                                  'used in the background.',
+                            ),
+                            const SizedBox(height: 12),
+                            _DisclosureItem(
+                              icon: Icons.auto_awesome_rounded,
+                              title: 'AI processing',
+                              body:
+                                  'Your recording is sent over a secure (HTTPS) connection to '
+                                  'our servers to transcribe it and rewrite it into polished '
+                                  'text, then returned to you. We do not sell your data.',
+                            ),
+                            const SizedBox(height: 12),
+                            _DisclosureItem(
+                              icon: Icons.touch_app_rounded,
+                              title: 'Accessibility Service',
+                              body:
                                   'VoiceBubble uses the Accessibility Service to detect the '
-                                  'text field you have selected and to insert your '
-                                  'AI-rewritten text into it — only at the moment you tap '
-                                  '“Insert”. VoiceBubble does not read, collect, store, or '
-                                  'share any other content from the apps you use. The '
-                                  'service is never used in the background.',
-                                  style: TextStyle(
-                                    color: textSecondary,
-                                    fontSize: 13,
-                                    height: 1.5,
-                                  ),
-                                ),
-                              ],
+                                  'text field you have selected and to insert your AI-rewritten '
+                                  'text into it — only at the moment you tap “Insert”. It does '
+                                  'NOT read, collect, store, or share any other content from '
+                                  'the apps you use, and is never used in the background.',
                             ),
-                          ),
+                            const SizedBox(height: 8),
+                          ],
                         ],
                       ),
                     ),
-
-                  const Spacer(),
-
-                  // Steps preview — sets expectation for what the next
-                  // tap actually opens, so the system Accessibility
-                  // screen doesn't feel like a bait-and-switch.
-                  if (!_granted && !_waitingForGrant)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        _StepRow(
-                            num: '1',
-                            text: 'Tap "Agree & enable" — opens system settings'),
-                        SizedBox(height: 10),
-                        _StepRow(
-                            num: '2',
-                            text: 'Find VoiceBubble, turn the toggle ON'),
-                        SizedBox(height: 10),
-                        _StepRow(
-                            num: '3',
-                            text: 'Press back — the bubble is ready'),
-                      ],
-                    ),
+                  ),
 
                   if (_waitingForGrant && !_granted)
                     const Padding(
-                      padding: EdgeInsets.only(bottom: 8),
+                      padding: EdgeInsets.only(top: 8, bottom: 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -261,8 +220,7 @@ class _AccessibilityPermissionScreenState
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation(purple),
+                              valueColor: AlwaysStoppedAnimation(purple),
                             ),
                           ),
                           SizedBox(width: 12),
@@ -277,9 +235,10 @@ class _AccessibilityPermissionScreenState
                       ),
                     ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 14),
 
-                  // Primary CTA
+                  // Primary affirmative consent → opens the system
+                  // Accessibility settings.
                   if (!_granted)
                     SizedBox(
                       width: double.infinity,
@@ -287,8 +246,7 @@ class _AccessibilityPermissionScreenState
                         onPressed: _waitingForGrant ? null : _openSettings,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: purple,
-                          disabledBackgroundColor:
-                              purple.withOpacity(0.4),
+                          disabledBackgroundColor: purple.withOpacity(0.4),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 18),
                           shape: RoundedRectangleBorder(
@@ -299,13 +257,27 @@ class _AccessibilityPermissionScreenState
                         child: Text(
                           _waitingForGrant
                               ? 'Open settings again'
-                              : 'Agree & enable Accessibility',
+                              : 'I agree — enable Accessibility',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.2,
                           ),
                         ),
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  // Skip — declining is NOT treated as consent. Voice
+                  // works without the Accessibility Service (falls back
+                  // to clipboard).
+                  if (!_granted)
+                    TextButton(
+                      onPressed: widget.onComplete,
+                      style: TextButton.styleFrom(
+                          foregroundColor: textSecondary),
+                      child: const Text(
+                        'Skip for now',
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
                 ],
@@ -379,45 +351,70 @@ class _GrantedHero extends StatelessWidget {
   }
 }
 
-class _StepRow extends StatelessWidget {
-  final String num;
-  final String text;
-  const _StepRow({required this.num, required this.text});
+/// One row of the prominent-disclosure breakdown: an icon, a bold
+/// capability title, and a plain-English explanation of what's
+/// accessed and why.
+class _DisclosureItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+  const _DisclosureItem({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          width: 28,
-          height: 28,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: const Color(0xFF7C6AE8).withOpacity(0.18),
-            shape: BoxShape.circle,
+    const purple = Color(0xFF7C6AE8);
+    const textPrimary = Colors.white;
+    const textSecondary = Color(0xFF94A3B8);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: purple.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: purple, size: 18),
           ),
-          child: Text(
-            num,
-            style: const TextStyle(
-              color: Color(0xFF7C6AE8),
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    color: textSecondary,
+                    fontSize: 12.5,
+                    height: 1.45,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              height: 1.4,
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
