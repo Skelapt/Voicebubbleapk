@@ -131,7 +131,7 @@ class _AccessibilityPermissionScreenState
                           Text(
                             _granted
                                 ? 'You\'re ready'
-                                : 'How VoiceBubble works',
+                                : 'Enable Accessibility',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: textPrimary,
@@ -144,7 +144,7 @@ class _AccessibilityPermissionScreenState
                           Text(
                             _granted
                                 ? 'The bubble can now drop AI replies straight into any app you\'re typing in.'
-                                : 'Before you start, here is exactly what VoiceBubble accesses and why. Nothing runs in the background.',
+                                : 'VoiceBubble needs Android\'s Accessibility Service to work. Here is exactly what it does.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: textSecondary,
@@ -154,53 +154,42 @@ class _AccessibilityPermissionScreenState
                           ),
                           const SizedBox(height: 24),
 
-                          // ── PROMINENT DISCLOSURE ──
-                          // Required by Google Play's Accessibility API +
-                          // User Data policies. Covers every sensitive
-                          // capability the app uses, names each one,
-                          // states the data accessed, the use, the
-                          // scenario, and that nothing else is
-                          // collected / stored / shared. Shown to EVERY
-                          // user in the normal onboarding flow before any
-                          // permission is requested — not gated behind a
-                          // feature, not buried in a menu or the policy.
+                          // ── DEDICATED ACCESSIBILITY DISCLOSURE ──
+                          // Google Play's Accessibility API policy requires
+                          // a SEPARATE disclosure specifically for the
+                          // AccessibilityService — it must NOT be bundled
+                          // with unrelated data disclosures (mic, overlay,
+                          // AI, etc., which are disclosed on their own
+                          // screens / at their own permission prompts).
+                          // This screen is ONLY about the AccessibilityService:
+                          // why it's needed (core purpose), what data it
+                          // accesses, how it's used, and when.
                           if (!_granted) ...[
                             _DisclosureItem(
-                              icon: Icons.bubble_chart_rounded,
-                              title: 'Floating bubble (display over apps)',
-                              body:
-                                  'VoiceBubble shows a floating button on top of your other '
-                                  'apps so you can start a voice rewrite anywhere. It only '
-                                  'draws the bubble — it cannot see the content of other apps.',
-                            ),
-                            const SizedBox(height: 12),
-                            _DisclosureItem(
-                              icon: Icons.mic_rounded,
-                              title: 'Microphone',
-                              body:
-                                  'VoiceBubble records your voice only while you are actively '
-                                  'recording (after you tap the bubble and start). It is never '
-                                  'used in the background.',
-                            ),
-                            const SizedBox(height: 12),
-                            _DisclosureItem(
-                              icon: Icons.auto_awesome_rounded,
-                              title: 'AI processing',
-                              body:
-                                  'Your recording is sent over a secure (HTTPS) connection to '
-                                  'our servers to transcribe it and rewrite it into polished '
-                                  'text, then returned to you. We do not sell your data.',
-                            ),
-                            const SizedBox(height: 12),
-                            _DisclosureItem(
                               icon: Icons.touch_app_rounded,
-                              title: 'Accessibility Service',
+                              title: 'What the Accessibility Service does',
                               body:
                                   'VoiceBubble uses the Accessibility Service to detect the '
-                                  'text field you have selected and to insert your AI-rewritten '
-                                  'text into it — only at the moment you tap “Insert”. It does '
-                                  'NOT read, collect, store, or share any other content from '
-                                  'the apps you use, and is never used in the background.',
+                                  'text field you have selected in another app and to insert '
+                                  'your AI-written text directly into it.',
+                            ),
+                            const SizedBox(height: 12),
+                            _DisclosureItem(
+                              icon: Icons.bolt_rounded,
+                              title: 'Why VoiceBubble needs it',
+                              body:
+                                  'This is the app\'s core feature: pasting your finished '
+                                  'message straight into WhatsApp, Gmail, or any app — so you '
+                                  'never have to copy and paste manually.',
+                            ),
+                            const SizedBox(height: 12),
+                            _DisclosureItem(
+                              icon: Icons.lock_outline_rounded,
+                              title: 'When it runs, and what it does NOT do',
+                              body:
+                                  'It only acts at the moment you tap “Insert”. It does NOT '
+                                  'read, collect, store, log, or share any other content from '
+                                  'the apps you use, and it never runs in the background.',
                             ),
                             const SizedBox(height: 8),
                           ],
