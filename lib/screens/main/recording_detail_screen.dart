@@ -1041,7 +1041,7 @@ class _RecordingDetailScreenState extends State<RecordingDetailScreen> {
     }
   }
 }
-/// "10 minutes of Pro unlocked" celebration banner — slides in from
+/// "5 minutes of Pro unlocked" celebration banner — slides in from
 /// the top with a soft bounce, fades out after 4s.
 class _UnlockBanner extends StatefulWidget {
   @override
@@ -1110,7 +1110,7 @@ class _UnlockBannerState extends State<_UnlockBanner>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '10 minutes of Pro unlocked',
+                      '5 minutes of Pro unlocked',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 15,
