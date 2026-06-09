@@ -167,29 +167,44 @@ class _AccessibilityPermissionScreenState
                           if (!_granted) ...[
                             _DisclosureItem(
                               icon: Icons.touch_app_rounded,
-                              title: 'What the Accessibility Service does',
+                              title: 'The feature this enables: Insert',
                               body:
-                                  'VoiceBubble uses the Accessibility Service to detect the '
-                                  'text field you have selected in another app and to insert '
-                                  'your AI-written text directly into it.',
+                                  'After you record a voice note, the floating bubble shows '
+                                  'an AI-polished version of your message in a result panel. '
+                                  'Tapping the “Insert” button on that panel uses the '
+                                  'Accessibility Service to identify the text field you have '
+                                  'selected in another app (e.g. WhatsApp\'s message box, '
+                                  'Gmail\'s compose body, the Messages text input) and writes '
+                                  'the polished text into that exact field, at your cursor '
+                                  'position, in one action.',
                             ),
                             const SizedBox(height: 12),
                             _DisclosureItem(
                               icon: Icons.bolt_rounded,
-                              title: 'Why VoiceBubble needs it',
+                              title: 'Why this requires the Accessibility API',
                               body:
-                                  'This is the app\'s core feature: pasting your finished '
-                                  'message straight into WhatsApp, Gmail, or any app — so you '
-                                  'never have to copy and paste manually.',
+                                  'Android does not give third-party apps any other way to '
+                                  'write text into another app\'s editable input field. The '
+                                  'system clipboard is not equivalent — it requires the user '
+                                  'to manually long-press, tap Paste, and re-position the '
+                                  'cursor, which defeats VoiceBubble\'s entire purpose of a '
+                                  'one-tap voice-to-text reply across any app. The '
+                                  'Accessibility Service\'s ACTION_SET_TEXT / ACTION_PASTE '
+                                  'on the currently-focused EditText is the only API that '
+                                  'allows in-place insertion at the cursor.',
                             ),
                             const SizedBox(height: 12),
                             _DisclosureItem(
                               icon: Icons.lock_outline_rounded,
-                              title: 'When it runs, and what it does NOT do',
+                              title: 'Scope and limits',
                               body:
-                                  'It only acts at the moment you tap “Insert”. It does NOT '
-                                  'read, collect, store, log, or share any other content from '
-                                  'the apps you use, and it never runs in the background.',
+                                  'The Accessibility Service is invoked only at the exact '
+                                  'moment you tap Insert. It does NOT read, log, collect, '
+                                  'store, transmit, or share any other content from any app, '
+                                  'and it does NOT run in the background. It is not used for '
+                                  'click automation, ad-blocking, call recording, screen '
+                                  'capture, or any purpose other than the single in-place '
+                                  'text insertion described above.',
                             ),
                             const SizedBox(height: 8),
                           ],
