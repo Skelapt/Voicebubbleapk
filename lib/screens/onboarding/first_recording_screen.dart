@@ -18,7 +18,7 @@ import '../main/preset_selection_screen.dart';
 
 /// Forced first recording screen during onboarding.
 /// Full black, glowing record button, skip option (small, grey).
-/// Completing a recording earns 10 bonus minutes.
+/// Completing a recording earns 5 bonus minutes.
 class FirstRecordingScreen extends StatefulWidget {
   const FirstRecordingScreen({super.key});
 
@@ -203,7 +203,7 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
           language: 'en',
         );
 
-        // Grant the 10 extra free minutes bonus
+        // Grant the 5 extra free minutes bonus
         await UsageService().claimOnboardingBonus();
 
         if (!mounted) return;
@@ -322,7 +322,7 @@ class _FirstRecordingScreenState extends State<FirstRecordingScreen>
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          '10 FREE MINUTES',
+                          '5 FREE MINUTES',
                           style: TextStyle(
                             color: Color(0xFF60A5FA),
                             fontSize: 14,
