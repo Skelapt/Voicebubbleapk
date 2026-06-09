@@ -128,18 +128,20 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final monthlyPrice = monthlyInfo?.formatted ?? "\$4.99";
     final yearlyPrice = yearlyInfo?.formatted ?? "\$49.99";
 
-    // Subtitle under each card: price-per-month. For monthly, this is just
-    // the monthly price again (matches the reference design where both cards
-    // share the same visual structure). For yearly, it's yearly / 12 rendered
-    // in the product's own currency.
-    final monthlySubtitle = monthlyInfo != null
-        ? '${monthlyInfo.formatted}/month'
-        : '$monthlyPrice/month';
-    String yearlySubtitle = '$yearlyPrice/year';
+    // Subtitle on each card — must clearly state the actual BILLING
+    // cadence (Google Play subscriptions policy: "how often the users
+    // will be charged"). Previously the yearly card showed only the
+    // per-month *equivalent* (e.g. "₹533.33/month"), which is
+    // misleading because the user is charged once per year. Both cards
+    // now lead with "Billed monthly" / "Billed yearly" so the cadence
+    // is unambiguous; the yearly card also shows the per-month
+    // equivalent as a small extra so users can still compare.
+    final monthlySubtitle = 'Billed monthly';
+    String yearlySubtitle = 'Billed yearly';
     if (yearlyInfo != null && yearlyInfo.raw > 0) {
       final perMonth = yearlyInfo.raw / 12;
       yearlySubtitle =
-          '${yearlyInfo.currencySymbol}${perMonth.toStringAsFixed(2)}/month';
+          'Billed yearly • ~${yearlyInfo.currencySymbol}${perMonth.toStringAsFixed(2)}/mo';
     }
 
     return Scaffold(
