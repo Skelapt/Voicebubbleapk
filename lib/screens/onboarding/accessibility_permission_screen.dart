@@ -176,154 +176,63 @@ class _AccessibilityPermissionScreenState
 
                           if (!_granted) ...[
                             // ── HEADLINE CORE-PURPOSE STATEMENT ──
-                            // The Accessibility API policy is "the
-                            // requested permissions must be needed to
-                            // provide the core purpose of the app or
-                            // service". This banner is the single,
-                            // one-sentence core-purpose statement,
-                            // verbatim — the rest of the screen
-                            // elaborates on it.
+                            // The single-sentence "core purpose" answer
+                            // Google Play asks for. Everything below
+                            // elaborates on this one line.
                             _CorePurposeBanner(),
                             const SizedBox(height: 14),
 
+                            // Three cards. Each one carries multiple
+                            // policy items so the disclosure stays
+                            // exhaustive without becoming a wall a
+                            // normal user has to scroll past.
                             _DisclosureItem(
                               icon: Icons.touch_app_rounded,
-                              title: '1. The single feature this enables',
+                              title: 'What it does — and which apps',
                               body:
-                                  'After you record a voice note, the floating bubble shows '
-                                  'an AI-polished version of your message in a small result '
-                                  'panel. Tapping the “Insert” button on that panel uses '
-                                  'the Accessibility API to identify the text field you '
-                                  'currently have focused inside another app — for example '
-                                  'WhatsApp\'s message box, Gmail\'s compose body, the '
-                                  'Messages text input, Slack\'s reply box, the Twitter / X '
-                                  'reply composer, the LinkedIn message field, the Notes '
-                                  'app body — and writes the polished text into that exact '
-                                  'field, at your cursor position, in one action. This is '
-                                  'the only feature the Accessibility API is used for.',
-                            ),
-                            const SizedBox(height: 10),
-                            _DisclosureItem(
-                              icon: Icons.bolt_rounded,
-                              title:
-                                  '2. Why this requires the Accessibility API',
-                              body:
-                                  'Android does not give a third-party app any other way to '
-                                  'write text into another app\'s editable input field. The '
-                                  'system clipboard is not equivalent — it requires the '
-                                  'user to manually long-press, tap “Paste”, and '
-                                  're-position the cursor, which defeats VoiceBubble\'s '
-                                  'core purpose of a one-tap voice-to-text reply across '
-                                  'any app. The standard Android share sheet only opens a '
-                                  'NEW screen in the target app; it cannot inject into the '
-                                  'composer the user is already typing into. An IME-based '
-                                  'approach would require replacing the user\'s keyboard '
-                                  'system-wide, which would intercept far more data and is '
-                                  'a strictly worse privacy outcome. The Accessibility '
-                                  'service\'s ACTION_SET_TEXT / ACTION_PASTE on the '
-                                  'currently-focused EditText is the only API that allows '
-                                  'in-place insertion at the cursor of an app the user is '
-                                  'already inside.',
-                            ),
-                            const SizedBox(height: 10),
-                            _DisclosureItem(
-                              icon: Icons.timer_outlined,
-                              title: '3. Strict scope — only at Insert tap',
-                              body:
-                                  'The Accessibility service is invoked only at the exact '
-                                  'moment you tap “Insert” on VoiceBubble\'s result panel. '
-                                  'It does not run in the background. It does not start at '
-                                  'boot. It does not listen to AccessibilityEvents from '
-                                  'other apps when the panel is closed. It is not used to '
-                                  'observe what you type, what you read, or which apps '
-                                  'you open. Its onAccessibilityEvent callback is a no-op; '
-                                  'the only path that touches another app\'s UI is the '
-                                  'explicit user-initiated Insert action.',
+                                  'After you record a voice note, the floating bubble '
+                                  'shows an AI-polished version of your message. Tapping '
+                                  '“Insert” uses the Accessibility API to write that text '
+                                  'into the field you\'re currently focused on in any '
+                                  'other app — WhatsApp\'s message box, Gmail\'s compose, '
+                                  'Messages, Slack, X/Twitter reply, LinkedIn, Notes — at '
+                                  'your cursor, in one action. This is the only thing the '
+                                  'API is used for. Android offers no other way to do this: '
+                                  'the clipboard needs a manual long-press + paste, the '
+                                  'share sheet opens a new screen instead of injecting, '
+                                  'and an IME-based approach would intercept far more data.',
                             ),
                             const SizedBox(height: 10),
                             _DisclosureItem(
                               icon: Icons.shield_outlined,
-                              title: '4. Data accessed — and not accessed',
+                              title: 'What it accesses — and what it doesn\'t',
                               body:
-                                  'When you tap Insert, VoiceBubble briefly reads ONE '
-                                  'AccessibilityNodeInfo — the descriptor of the currently '
-                                  'focused EditText — so it can write your text into it. '
-                                  'It does NOT read the existing contents of that field. '
-                                  'It does NOT read any other field on the screen. It does '
-                                  'NOT capture screen contents, take screenshots, record '
-                                  'audio of other apps, read notifications, or scan UI '
-                                  'trees. No AccessibilityEvent content is ever logged, '
-                                  'stored on disk, transmitted, sold, or shared. The text '
-                                  'that gets inserted is the AI-rewritten version of YOUR '
-                                  'OWN voice recording — content you produced inside '
-                                  'VoiceBubble, not anything read from another app.',
-                            ),
-                            const SizedBox(height: 10),
-                            _DisclosureItem(
-                              icon: Icons.block_rounded,
-                              title:
-                                  '5. What the service is NOT used for',
-                              body:
-                                  'VoiceBubble\'s Accessibility service is not used for: '
-                                  'click automation, gesture replay, ad-blocking, call '
-                                  'recording, screen capture or recording, app usage '
-                                  'analytics, banking-app data scraping, password '
-                                  'auto-fill, scraping notifications, monitoring chats, '
-                                  'tracking what apps you open, tracking your screen time, '
-                                  'or any form of background surveillance. There is no '
-                                  'code path for any of those behaviours; the service\'s '
-                                  'manifest description, event handler, and Java/Kotlin '
-                                  'source are limited to the one user-initiated Insert '
-                                  'action described above.',
-                            ),
-                            const SizedBox(height: 10),
-                            _DisclosureItem(
-                              icon: Icons.cloud_off_rounded,
-                              title:
-                                  '6. No off-device transmission via Accessibility',
-                              body:
-                                  'Nothing the Accessibility service touches leaves your '
-                                  'device. The Insert action is a local OS call against '
-                                  'the focused field on the same device. The only network '
-                                  'traffic VoiceBubble generates is the audio you '
-                                  'explicitly record being sent to our transcription / '
-                                  'rewrite backend so the AI can turn your voice into '
-                                  'polished text — and that path runs over HTTPS '
-                                  'independently of the Accessibility API. The '
-                                  'Accessibility API itself never originates network '
-                                  'traffic in this app.',
+                                  'Only at the moment you tap Insert. It reads one '
+                                  'AccessibilityNodeInfo — the descriptor of the focused '
+                                  'text field — purely to write your text into it. It '
+                                  'does NOT read that field\'s existing contents, other '
+                                  'fields, the screen, notifications, or any UI tree. It '
+                                  'does NOT run in the background, start at boot, log, '
+                                  'store, transmit, sell or share anything, and is NOT '
+                                  'used for click automation, ad-blocking, call recording, '
+                                  'screen capture, password autofill, app-usage tracking, '
+                                  'or any form of background surveillance. The Insert '
+                                  'action is a local OS call — nothing it touches leaves '
+                                  'your device.',
                             ),
                             const SizedBox(height: 10),
                             _DisclosureItem(
                               icon: Icons.person_outline_rounded,
-                              title:
-                                  '7. Your control — grant, deny, or revoke',
+                              title: 'Your control',
                               body:
-                                  'Granting Accessibility is fully optional. Tapping '
-                                  '“Skip for now” below proceeds without it; VoiceBubble '
-                                  'still works — the bubble copies the AI text to your '
-                                  'clipboard and you paste it manually. After granting, '
-                                  'you can revoke at any time from Android Settings → '
-                                  'Accessibility → Installed services → VoiceBubble → '
-                                  'turn off. Revoking immediately stops all use of the '
-                                  'API; no future Insert action will succeed until you '
-                                  're-enable it.',
-                            ),
-                            const SizedBox(height: 10),
-                            _DisclosureItem(
-                              icon: Icons.policy_outlined,
-                              title:
-                                  '8. Privacy policy and Data safety section',
-                              body:
-                                  'This same disclosure is restated verbatim in our '
-                                  'in-app Privacy Policy (Settings → About → Privacy '
-                                  'Policy) and in the Play Store listing\'s Data safety '
-                                  'section. The Data safety section discloses that '
-                                  'VoiceBubble: does not sell user data; does not share '
-                                  'Accessibility data with any third party; collects no '
-                                  'data via the Accessibility API; and uses the '
-                                  'Accessibility API solely for one-tap text insertion '
-                                  'as described above.',
+                                  'Granting is fully optional. Tap “Skip for now” to '
+                                  'proceed without it — VoiceBubble still works, the '
+                                  'bubble just copies the AI text to your clipboard for '
+                                  'you to paste. You can revoke anytime in Android '
+                                  'Settings → Accessibility → Installed services → '
+                                  'VoiceBubble. The same disclosure is restated in our '
+                                  'in-app Privacy Policy and in the Play Store listing\'s '
+                                  'Data safety section.',
                             ),
                             const SizedBox(height: 12),
                             // Bold one-line confirmation directly above
@@ -332,10 +241,9 @@ class _AccessibilityPermissionScreenState
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 4),
                               child: Text(
-                                'By tapping “I agree — enable Accessibility”, you confirm '
-                                'you have read this disclosure and consent to VoiceBubble '
-                                'using Android\'s Accessibility API solely for the '
-                                'one-tap in-place text insertion described above.',
+                                'By tapping “I agree — enable Accessibility” you consent '
+                                'to VoiceBubble using the Accessibility API solely for '
+                                'the one-tap text insertion described above.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: Color(0xFFD1D5DB),

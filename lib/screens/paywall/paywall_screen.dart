@@ -130,19 +130,15 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
     // Subtitle on each card — must clearly state the actual BILLING
     // cadence (Google Play subscriptions policy: "how often the users
-    // will be charged"). Previously the yearly card showed only the
-    // per-month *equivalent* (e.g. "₹533.33/month"), which is
-    // misleading because the user is charged once per year. Both cards
-    // now lead with "Billed monthly" / "Billed yearly" so the cadence
-    // is unambiguous; the yearly card also shows the per-month
-    // equivalent as a small extra so users can still compare.
+    // will be charged"). Both cards lead with the cadence, full stop.
+    // We deliberately do NOT show a per-month equivalent on the
+    // yearly card any more — every previous version with that figure
+    // got flagged as "Terms of subscription offer are unclear" because
+    // a per-month number on a yearly plan is ambiguous to a glance
+    // reader. The yearly card now states yearly cost and yearly cadence
+    // ONLY; the per-month comparison shopping is the user's job.
     final monthlySubtitle = 'Billed monthly';
-    String yearlySubtitle = 'Billed yearly';
-    if (yearlyInfo != null && yearlyInfo.raw > 0) {
-      final perMonth = yearlyInfo.raw / 12;
-      yearlySubtitle =
-          'Billed yearly • ~${yearlyInfo.currencySymbol}${perMonth.toStringAsFixed(2)}/mo';
-    }
+    final yearlySubtitle = 'Billed once per year';
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A),
