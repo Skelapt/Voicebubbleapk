@@ -2,18 +2,34 @@
 <!--
     Configuration for VoiceBubbleA11yService.
 
-    We listen broadly for window/focus changes so we can track which
-    app is in front and which editable field has focus, but we don't
-    need to read screen content beyond what's necessary to inject
-    text into the focused EditText. That's enforced in code by only
-    ever touching `findFocus(FOCUS_INPUT)` and the editable subtree
-    immediately around it.
+    DELIBERATELY NARROW SCOPE. Google Play's Accessibility API policy
+    says: "Apps must use limited, more narrowly scoped APIs and
+    permissions in lieu of the Accessibility API when possible to
+    achieve the desired functionality." We comply by requesting only
+    the events the service code actually consumes:
+
+      - typeViewFocused:        used to track which app's editable
+                                field has focus, so the Insert action
+                                knows where to put the text.
+      - typeWindowStateChanged: used to track which app is currently
+                                in the foreground.
+
+    We do NOT request:
+      - typeViewTextSelectionChanged
+      - typeWindowContentChanged
+      - typeViewTextChanged
+      - typeNotificationStateChanged
+      - …or any other event class.
+
+    Flags are limited to flagDefault. We do NOT request
+    flagRetrieveInteractiveWindows or flagRequestFilterKeyEvents
+    because the code does not need them.
 -->
 <accessibility-service
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeViewFocused|typeViewTextSelectionChanged|typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityEventTypes="typeViewFocused|typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows|flagRequestFilterKeyEvents"
+    android:accessibilityFlags="flagDefault"
     android:canRequestFilterKeyEvents="false"
     android:canRetrieveWindowContent="true"
     android:notificationTimeout="100"

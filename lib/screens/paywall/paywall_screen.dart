@@ -130,19 +130,15 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
     // Subtitle on each card — must clearly state the actual BILLING
     // cadence (Google Play subscriptions policy: "how often the users
-    // will be charged"). Previously the yearly card showed only the
-    // per-month *equivalent* (e.g. "₹533.33/month"), which is
-    // misleading because the user is charged once per year. Both cards
-    // now lead with "Billed monthly" / "Billed yearly" so the cadence
-    // is unambiguous; the yearly card also shows the per-month
-    // equivalent as a small extra so users can still compare.
+    // will be charged"). Both cards lead with the cadence, full stop.
+    // We deliberately do NOT show a per-month equivalent on the
+    // yearly card any more — every previous version with that figure
+    // got flagged as "Terms of subscription offer are unclear" because
+    // a per-month number on a yearly plan is ambiguous to a glance
+    // reader. The yearly card now states yearly cost and yearly cadence
+    // ONLY; the per-month comparison shopping is the user's job.
     final monthlySubtitle = 'Billed monthly';
-    String yearlySubtitle = 'Billed yearly';
-    if (yearlyInfo != null && yearlyInfo.raw > 0) {
-      final perMonth = yearlyInfo.raw / 12;
-      yearlySubtitle =
-          'Billed yearly • ~${yearlyInfo.currencySymbol}${perMonth.toStringAsFixed(2)}/mo';
-    }
+    final yearlySubtitle = 'Billed once per year';
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D1A),
@@ -174,45 +170,66 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
                 const SizedBox(height: 12),
 
-                // Logo
-                Image.asset('assets/logo.png', width: 64, height: 64),
+                // Header — no logo. The previous logo slot is where the
+                // big "GO PRO" headline lands so the page reads cleanly
+                // from the top, no double brand-mark on a screen that's
+                // already inside the app.
+                const Text(
+                  'GO PRO',
+                  style: TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 1.5,
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'AI On Top Of Every App.',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+
                 const SizedBox(height: 14),
 
-                // Title
-                const Text(
-                  'Go Pro',
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: -0.5),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Unlock the full power of VoiceBubble',
-                  style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.45)),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Social proof — centered stars
+                // Social proof — ⭐ 4.8 Rating
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ...List.generate(5, (i) => const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 1),
-                      child: Icon(Icons.star_rounded, size: 20, color: Color(0xFFFFD700)),
-                    )),
-                    const SizedBox(width: 8),
-                    Text('4.8', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.9))),
+                    const Icon(Icons.star_rounded,
+                        size: 20, color: Color(0xFFFFD700)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '4.8 Rating',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white.withOpacity(0.9)),
+                    ),
                   ],
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 26),
 
-                // 3 feature bullets — bigger text
-                _feature(Icons.mic_none_rounded, 'Unlimited voice-to-text transcriptions'),
-                _feature(Icons.auto_awesome_rounded, 'Unlimited AI rewrites'),
-                _feature(Icons.upload_file_rounded, 'Upload audio files for transcription'),
+                // 4 feature bullets — kept at the same visual size as
+                // before so the rest of the page (price cards, CTA,
+                // terms paragraph) isn't pushed off-screen.
+                _feature(Icons.bubble_chart_rounded,
+                    'Floating overlay works wherever you type'),
+                _feature(Icons.mic_none_rounded,
+                    'Turn speech into finished text instantly'),
+                _feature(Icons.auto_awesome_rounded,
+                    'Rewrite anything with one tap'),
+                _feature(Icons.bolt_rounded,
+                    'No copying. No switching. No typing.'),
 
-                const SizedBox(height: 22),
+                const SizedBox(height: 18),
 
                 // Two price cards — IDENTICAL size (height 100). No outer
                 // padding: the floating "7-DAY TRIAL" badge is a Positioned
