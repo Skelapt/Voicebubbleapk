@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">VoiceBubble</string>
-    <string name="a11y_service_summary">Lets the bubble paste your AI-rewritten text straight into any app</string>
-    <string name="a11y_service_description">VoiceBubble uses this only to detect the text field you\'re typing in and to insert the AI-polished result at your cursor. It does not collect, store, or share content from other apps.</string>
+    <string name="a11y_service_summary">Lets VoiceBubble paste your AI-rewritten voice message into the text field you\'re focused on, in any app.</string>
+    <string name="a11y_service_description">VoiceBubble uses the Accessibility Service for one feature only: when you tap \"Insert\" on the floating bubble after recording, your AI-rewritten message is written directly into the text field you\'re focused on in the app you\'re using (for example WhatsApp, Gmail, Messages, Slack). It identifies the focused field, inserts the text at your cursor, and stops. It does NOT read the existing contents of that field, the rest of the screen, notifications, passwords, banking apps, or any other content. It does NOT run in the background, record audio, capture the screen, or transmit anything off your device via this API. You can disable it any time in Settings → Accessibility.</string>
 </resources>
