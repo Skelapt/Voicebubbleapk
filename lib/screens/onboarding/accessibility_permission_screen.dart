@@ -164,7 +164,7 @@ class _AccessibilityPermissionScreenState
                           Text(
                             _granted
                                 ? 'The bubble can now drop AI replies straight into any app you\'re typing in.'
-                                : 'VoiceBubble uses Android\'s Accessibility API for one specific reason. Please read this disclosure in full before you decide.',
+                                : 'Please read this disclosure before you decide.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: textSecondary,
@@ -175,10 +175,25 @@ class _AccessibilityPermissionScreenState
                           const SizedBox(height: 18),
 
                           if (!_granted) ...[
-                            // ── HEADLINE CORE-PURPOSE STATEMENT ──
-                            // The single-sentence "core purpose" answer
-                            // Google Play asks for. Everything below
-                            // elaborates on this one line.
+                            // ── HEADLINE DATA-USE STATEMENT ──
+                            // Written in the EXACT format Google Play's
+                            // "Best practices for prominent disclosure
+                            // and consent" article recommends:
+                            //
+                            //   "[This app] collects/transmits/syncs/
+                            //   stores [type of data] to enable
+                            //   [feature], [in what scenario]."
+                            //
+                            // We deliberately follow that template
+                            // word-for-word so a reviewer comparing the
+                            // disclosure to the policy can tick off
+                            // each required clause in the same order.
+                            _DataUseStatement(),
+                            const SizedBox(height: 14),
+
+                            // Single-line "core purpose" framing under
+                            // the policy-format statement, in case a
+                            // user wants the human summary first.
                             _CorePurposeBanner(),
                             const SizedBox(height: 14),
 
@@ -406,6 +421,78 @@ class _GrantedHero extends StatelessWidget {
 /// banner above the breakdown. This is the canonical answer to Google
 /// Play's required "what is your app's core purpose for using the
 /// Accessibility API?" question.
+/// Headline data-use statement, written in the EXACT template Google
+/// Play's "Best practices for prominent disclosure and consent" article
+/// recommends for sensitive-API disclosures:
+///
+///   "[This app] collects/transmits/syncs/stores [type of data] to
+///   enable [feature], [in what scenario]."
+///
+/// We intentionally lift each clause from that template so a reviewer
+/// can map them one-to-one against the policy.
+class _DataUseStatement extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF34C759);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: green.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: green.withOpacity(0.55), width: 1.5),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.verified_user_outlined,
+                  color: green, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'How VoiceBubble uses the Accessibility API',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10),
+          Text(
+            'VoiceBubble reads the descriptor of the text field you are '
+            'currently focused on in another app, and writes text into '
+            'that field, to enable one-tap insertion of your '
+            'AI-rewritten voice message — only at the moment you tap '
+            '“Insert” on the floating bubble after recording a voice '
+            'note.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.5,
+            ),
+          ),
+          SizedBox(height: 10),
+          Text(
+            'It does not collect, transmit, sync, store, sell, or share '
+            'any data accessed via the Accessibility API. The action runs '
+            'on-device and stops the instant the text is inserted.',
+            style: TextStyle(
+              color: Color(0xFFD1D5DB),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CorePurposeBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
