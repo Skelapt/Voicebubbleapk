@@ -261,43 +261,48 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   ],
                 ),
 
-                // Belt-and-braces trial-end disclosure, sitting BETWEEN
-                // the price cards and the CTA, mirroring exactly what
-                // the user is about to commit to. Google Play rejects
-                // paywalls where the trial-end price is anywhere except
-                // adjacent to the trial badge — not buried in fine
-                // print 200px below.
-                if (_isYearlySelected) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7C6AE8).withOpacity(0.10),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF7C6AE8).withOpacity(0.35)),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF7C6AE8)),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Free for 7 days, then $yearlyPrice billed once per year. '
-                            'Auto-renews yearly until you cancel.',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              height: 1.45,
-                            ),
+                // Belt-and-braces terms-of-offer disclosure card,
+                // sitting BETWEEN the price cards and the CTA. Renders
+                // for BOTH plans now — earlier versions only showed it
+                // for yearly, which left the monthly path without an
+                // adjacent terms summary and almost certainly drove the
+                // recent "Terms of subscription offer are unclear"
+                // rejections.
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C6AE8).withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF7C6AE8).withOpacity(0.55), width: 1.5),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF7C6AE8)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _isYearlySelected
+                              ? 'Free for 7 days. After the trial ends you will be '
+                                  'charged $yearlyPrice for one year. '
+                                  'Auto-renews at $yearlyPrice every year until you cancel. '
+                                  'A subscription is not required to use the app.'
+                              : 'You will be charged $monthlyPrice for one month. '
+                                  'Auto-renews at $monthlyPrice every month until you cancel. '
+                                  'A subscription is not required to use the app.',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 1.45,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
 
                 const SizedBox(height: 16),
 
@@ -308,11 +313,13 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     child: Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 12), textAlign: TextAlign.center),
                   ),
 
-                // CTA Button — green. The label itself spells out the
-                // full charge and cadence so a user can never tap
+                // CTA Button — green. The label spells out the full
+                // charge and cadence so a user can never tap
                 // "Subscribe" without seeing exactly what they are
-                // committing to. This is the single most common reason
-                // Google Play rejects a subscription paywall.
+                // committing to. The auto-renew line below the
+                // headline is sized at 15pt (was 12.5pt) and bumped
+                // to w700 so it reads as part of the offer, not as
+                // a sub-caption.
                 GestureDetector(
                   onTap: _isLoading || _isPurchasing ? null : _handlePurchase,
                   child: Container(
@@ -347,16 +354,17 @@ class _PaywallScreenState extends State<PaywallScreen> {
                                       color: Colors.white,
                                       letterSpacing: 0.1),
                                 ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 3),
                                 Text(
                                   _isYearlySelected
                                       ? 'then $yearlyPrice / year • auto-renews'
                                       : '$monthlyPrice / month • auto-renews',
                                   style: const TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
                                       color: Colors.white,
-                                      height: 1.2),
+                                      height: 1.2,
+                                      letterSpacing: 0.1),
                                 ),
                               ],
                             ),
