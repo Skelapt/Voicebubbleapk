@@ -36,11 +36,17 @@ dependencies:
   # Authentication
   # sign_in_with_apple removed — not imported anywhere (iOS-only auth
   # path that was never wired). Drops its native .so files.
-  firebase_core: ^4.4.0
-  firebase_auth: ^6.1.4
-  firebase_analytics: ^12.1.2
+  # EXACT pins (no ^) — pubspec.lock is not committed, so CI resolves
+  # fresh every build. In July 2026 the resolver drifted onto
+  # firebase_auth 6.5.5 / firebase_analytics 12.4.4 / cloud_firestore
+  # 6.7.0, which are incompatible with the firebase_core our range
+  # allows ("Type 'FirebasePlugin' not found") and broke bundleRelease.
+  # These are the known-good versions the app was built against.
+  firebase_core: 4.4.0
+  firebase_auth: 6.1.4
+  firebase_analytics: 12.1.2
   google_sign_in: ^6.2.1
-  cloud_firestore: ^6.1.2
+  cloud_firestore: 6.1.2
   
   # In-App Purchases
   in_app_purchase: ^3.2.3
