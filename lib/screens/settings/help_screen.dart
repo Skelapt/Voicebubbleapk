@@ -96,7 +96,7 @@ class HelpScreen extends StatelessWidget {
                   
                   _buildFAQItem(
                     'What\'s the difference between Free and Pro?',
-                    'Free plan: tap the floating bubble to unlock 5 minutes. Pro plan offers 90 minutes monthly, premium AI quality, and exclusive features.',
+                    'Free plan: tap the floating bubble to unlock 5 minutes. Pro offers unlimited voice-to-text transcriptions, unlimited AI rewrites, and audio file uploads.',
                     textColor,
                     secondaryTextColor,
                     surfaceColor,
