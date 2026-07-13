@@ -103,10 +103,13 @@ class UpgradeDialog extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _buildFeature('90 minutes STT & AI per month'),
-          _buildFeature('Unlimited Highlight AI'),
-          _buildFeature('Priority support'),
-          _buildFeature('Early access to new features'),
+          // Must match the paywall's offer EXACTLY — the Subscriptions
+          // policy bans misleading in-app promotions, and promising
+          // "90 minutes" here while the paywall says "Unlimited" is a
+          // contradictory claim about what the subscription includes.
+          _buildFeature('Unlimited voice-to-text transcriptions'),
+          _buildFeature('Unlimited AI rewrites'),
+          _buildFeature('Upload audio files for transcription'),
         ],
       ),
       actions: [
